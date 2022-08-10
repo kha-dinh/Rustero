@@ -1,0 +1,18 @@
+[package]
+name = "rustero"
+description = ""
+keywords = ["zotero", "tui", "cli", "terminal"]
+categories = ["command-line-utilities"]
+version = "0.0.1"
+authors = ["Kha Dinh <dalo2903@gmail.com>"]
+license = "MIT OR Apache-2.0"
+edition = "2021"
+
+[dependencies]
+tui = { version = "0.18.0", features = ["crossterm"], default-features = false }
+crossterm = "0.24"
+
+[[bin]]
+bench = false
+path = "src/main.rs"
+name = "rustero"
