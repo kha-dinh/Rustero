@@ -10,7 +10,8 @@ edition = "2021"
 
 [dependencies]
 tui = { version = "0.18.0", features = ["crossterm"], default-features = false }
-crossterm = "0.24"
+crossterm = "0.25"
+unicode-width = "0.1.5"
 
 [[bin]]
 bench = false
