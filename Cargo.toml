@@ -12,6 +12,10 @@ edition = "2021"
 tui = { version = "0.18.0", features = ["crossterm"], default-features = false }
 crossterm = "0.25"
 unicode-width = "0.1.5"
+sqlx = { version = "0.6", features = [ "runtime-tokio-rustls" , "sqlite", "macros"] }
+anyhow = "1.0"
+tokio-test = {}
+dotenv = "0.15.0"
 
 [[bin]]
 bench = false

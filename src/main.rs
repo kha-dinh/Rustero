@@ -23,6 +23,7 @@ use tui::{
     widgets::{Block, Borders, List, ListItem, Paragraph},
     Frame, Terminal,
 };
+mod db_connector;
 use unicode_width::UnicodeWidthStr;
 
 enum InputMode {
