@@ -1,6 +1,8 @@
 use sqlx::{query_as, SqlitePool};
 // use sqlx::sql
 
+// TODO: load attachment
+
 #[derive(Debug, Clone)]
 pub struct Document {
     pub item_data: ItemData,
@@ -28,9 +30,33 @@ pub struct ItemData {
 
 #[derive(Debug, Clone)]
 #[allow(non_snake_case)]
+pub struct Collection {
+    collectionId: i64,
+    pub collectionName: String,
+    pub parentCollectionId: i64,
+}
+
+#[derive(Debug, Clone)]
+#[allow(non_snake_case)]
 pub struct Creator {
-    pub firstName: String,
-    pub lastName: String,
+    pub firstName: Option<String>,
+    pub lastName: Option<String>,
+}
+
+#[allow(non_snake_case)]
+pub async fn get_collections(pool: &SqlitePool, col: &mut Vec<Collection>) -> anyhow::Result<()> {
+    let records = query_as!(
+            Collection,
+            r#"
+SELECT collectionID as "collectionId!", collectionName as "collectionName!", parentCollectionId as "parentCollectionId!"
+FROM collections
+ORDER BY collectionName
+"#,
+        )
+        .fetch_all(pool)
+        .await?;
+    col.clone_from(&records);
+    Ok(())
 }
 
 #[allow(non_snake_case)]
@@ -39,7 +65,7 @@ pub async fn get_creators(pool: &SqlitePool, docs: &mut Vec<Document>) -> anyhow
         let records = query_as!(
             Creator,
             r#"
-SELECT firstName as "firstName!", lastName as  "lastName!" 
+SELECT firstName as "firstName?", lastName as  "lastName?" 
 FROM creators JOIN itemCreators on itemCreators.creatorID = creators.creatorID
 WHERE itemID = ?
 ORDER BY itemCreators.orderIndex

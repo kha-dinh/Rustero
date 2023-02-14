@@ -8,7 +8,7 @@ use crossterm::{
     execute,
     terminal::{disable_raw_mode, enable_raw_mode, EnterAlternateScreen, LeaveAlternateScreen},
 };
-use db_connector::Document;
+use db_connector::{get_collections, get_creators, Collection, Document};
 use event::Key;
 use fuzzy_matcher::{skim::SkimMatcherV2, FuzzyMatcher};
 use sqlx::SqlitePool;
@@ -89,6 +89,7 @@ struct App {
     sqlite_pool: Option<SqlitePool>,
     /// History of recorded messages
     documents: StatefulList<Document>,
+    collections: StatefulList<Collection>,
     // documents_state: StatefulList<Document>,
 }
 
@@ -98,6 +99,10 @@ impl Default for App {
             search_input: String::new(),
             sqlite_pool: None,
             documents: StatefulList {
+                state: ListState::default(),
+                items: Vec::new(),
+            },
+            collections: StatefulList {
                 state: ListState::default(),
                 items: Vec::new(),
             },
@@ -124,15 +129,22 @@ async fn start_ui(user_config: UserConfig) -> Result<()> {
     // create app and run it
     let events = event::Events::new(user_config.behavior.tick_rate_milliseconds);
     let mut app = App::default();
-    app.sqlite_pool = Option::from(SqlitePool::connect(&url.unwrap()).await?);
-    let mut item_data = Vec::new();
-    db_connector::get_all_item_data(app.sqlite_pool.as_mut().unwrap(), &mut item_data).await?;
-    app.documents.items = Vec::from_iter(item_data);
 
     let mut is_first_render = true;
     loop {
         terminal.draw(|f| ui(f, &mut app))?;
         if is_first_render {
+            app.sqlite_pool = Option::from(SqlitePool::connect(url.as_ref().unwrap()).await?);
+            let mut item_data = Vec::new();
+            db_connector::get_all_item_data(app.sqlite_pool.as_mut().unwrap(), &mut item_data)
+                .await?;
+            app.documents.items = Vec::from_iter(item_data);
+            get_creators(app.sqlite_pool.as_mut().unwrap(), &mut app.documents.items).await?;
+            get_collections(
+                app.sqlite_pool.as_mut().unwrap(),
+                &mut app.collections.items,
+            )
+            .await?;
             is_first_render = false;
         }
         match events.next()? {
@@ -151,6 +163,7 @@ async fn start_ui(user_config: UserConfig) -> Result<()> {
                         app.search_input.push(c);
                         app.documents.state.select(Some(0));
                     }
+                    Key::Enter => {}
                     _ => {}
                 }
             }
@@ -206,19 +219,13 @@ fn ui<B: Backend>(f: &mut Frame<B>, app: &mut App) {
         )
         .split(main_layout[1]);
 
-    // let test = Layout::default()
-    //     .margin(2)
-    //     .constraints([Constraint::Percentage(30), Constraint::Percentage(70)].as_ref())
-    //     .split(chunks[1]);
-    //
-
     let input = Paragraph::new(app.search_input.as_ref())
         .block(Block::default().borders(Borders::ALL).title("Input"));
     f.render_widget(input, main_layout[0]);
 
     let matcher = SkimMatcherV2::default();
 
-    let mut filtered_doc = app.documents.items.iter().filter(|doc| {
+    let filtered_doc = app.documents.items.iter().filter(|doc| {
         // Match fuzzy find
         matcher
             .fuzzy_match(&doc.item_data.title, app.search_input.as_str())
@@ -260,8 +267,14 @@ fn ui<B: Backend>(f: &mut Frame<B>, app: &mut App) {
         );
     let author: Vec<ListItem> = filtered_doc
         .clone()
+        .filter(|doc| !doc.creators.is_empty())
         .map(|doc| {
-            let header = Span::raw(&doc.creators[0].firstName);
+            let header = Spans::from(vec![
+                Span::raw(doc.creators[0].lastName.as_ref().unwrap()),
+                Span::raw(" "),
+                Span::raw(doc.creators[0].firstName.as_ref().unwrap()),
+                Span::raw(" et al."),
+            ]);
             ListItem::new(header)
         })
         .collect();
@@ -275,6 +288,26 @@ fn ui<B: Backend>(f: &mut Frame<B>, app: &mut App) {
                 .add_modifier(Modifier::BOLD),
         );
 
+    let collections: Vec<ListItem> = app
+        .collections
+        .items
+        .iter()
+        .map(|col| {
+            let header = Spans::from(vec![Span::raw(&col.collectionName)]);
+            ListItem::new(header)
+        })
+        .collect();
+
+    let collections = List::new(collections)
+        .block(Block::default().borders(Borders::ALL).title("creator"))
+        .highlight_style(
+            Style::default()
+                .bg(Color::LightGreen)
+                .fg(Color::Black)
+                .add_modifier(Modifier::BOLD),
+        );
+
+    f.render_stateful_widget(collections, chunks[0], &mut app.documents.state);
     f.render_stateful_widget(titles, chunks[1], &mut app.documents.state);
     f.render_stateful_widget(pubdate, chunks[3], &mut app.documents.state);
     f.render_stateful_widget(author, chunks[2], &mut app.documents.state);
