@@ -42,6 +42,7 @@ pub async fn get_creators(pool: &SqlitePool, docs: &mut Vec<Document>) -> anyhow
 SELECT firstName as "firstName!", lastName as  "lastName!" 
 FROM creators JOIN itemCreators on itemCreators.creatorID = creators.creatorID
 WHERE itemID = ?
+ORDER BY itemCreators.orderIndex
 "#,
             doc.item_data.itemId
         )
@@ -69,9 +70,9 @@ SELECT d1.itemID as "itemId!",
     pubdate as "pubdate!" 
 FROM 
 	(SELECT value as title,itemID	from itemDataValues JOIN itemData on itemDataValues.valueID = itemData.valueID WHERE fieldID = 1) as d1
-	JOIN (SELECT value as abstract, itemID	from itemDataValues JOIN itemData on itemDataValues.valueID = itemData.valueID WHERE fieldID = 2) as d2 ON d1.itemID = d2.itemID
-	JOIN (SELECT value as pubdate, itemID	from itemDataValues JOIN itemData on itemDataValues.valueID = itemData.valueID WHERE fieldID = 6) as d3 ON d1.itemID = d3.itemID	
-    JOIN items ON items.itemID = d1.itemID  
+	    JOIN (SELECT value as abstract, itemID	from itemDataValues JOIN itemData on itemDataValues.valueID = itemData.valueID WHERE fieldID = 2) as d2 ON d1.itemID = d2.itemID
+	    JOIN (SELECT value as pubdate, itemID	from itemDataValues JOIN itemData on itemDataValues.valueID = itemData.valueID WHERE fieldID = 6) as d3 ON d1.itemID = d3.itemID	
+        JOIN items ON items.itemID = d1.itemID  
 "#
     )
     .fetch_all(pool)
