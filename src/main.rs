@@ -9,6 +9,7 @@
 ///   * Pressing Backspace erases a character
 ///   * Pressing Enter pushes the current input in the history of previous
 ///   messages
+use event::*;
 use crossterm::{
     event::{self, DisableMouseCapture, EnableMouseCapture, Event, KeyCode},
     execute,
