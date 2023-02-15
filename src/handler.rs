@@ -2,7 +2,7 @@ use std::{path::Path, process::Command};
 
 use crate::App;
 
-pub async fn  handle_enter(
+pub async fn handle_enter(
     app: &App,
     zotero_storage_dir: &Path,
     viewer: &str,
@@ -12,11 +12,11 @@ pub async fn  handle_enter(
             let doc = app.filtered_documents.items.get(index).unwrap();
             match &doc.attachments {
                 Some(attachments) => {
-                    let attachment = &doc.attachments.as_ref().unwrap()[0];
+                    let attachment = &attachments[0];
                     let path = zotero_storage_dir
                         .join(&attachment.key.as_ref().unwrap())
                         .join(&attachment.path.as_ref().unwrap()[":storage".len()..]);
-                    Command::new("zathura").arg(&path).spawn()?;
+                    Command::new(viewer).arg(&path).spawn()?;
                 }
                 None => {}
             }

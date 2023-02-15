@@ -307,13 +307,13 @@ impl UserConfig {
                 paused_icon: "⏸".to_string(),
                 set_window_title: true,
                 zotero_storage_dir: PathBuf::from(
-                    dirs::home_dir().unwrap().join(ZOTERO_DIR).join(ZOTERO_STORAGE_DIR),
-                ),
-                zotero_db_path: PathBuf::from(
                     dirs::home_dir()
                         .unwrap()
                         .join(ZOTERO_DIR)
-                        .join(ZOTERO_DB),
+                        .join(ZOTERO_STORAGE_DIR),
+                ),
+                zotero_db_path: PathBuf::from(
+                    dirs::home_dir().unwrap().join(ZOTERO_DIR).join(ZOTERO_DB),
                 ),
                 pdf_viewer: "zathura".to_string(),
             },
