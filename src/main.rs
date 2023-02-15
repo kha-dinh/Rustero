@@ -19,6 +19,7 @@ use crossterm::{
 use std::io;
 use tokio;
 use tui::{backend::CrosstermBackend, Terminal};
+use ui::UIBlock;
 
 use crate::db_connector::{get_attachments_for_docs, get_collections, get_creators_for_docs};
 use crate::event::Key;
@@ -40,15 +41,18 @@ async fn start_ui(user_config: UserConfig) -> Result<()> {
     let mut app = App::default();
 
     let mut is_first_render = true;
+    let blocks_to_draw = vec![UIBlock::Title(70), UIBlock::Creator(20), UIBlock::Year(10)];
     loop {
-        terminal.draw(|f| draw_main_layout(f, &mut app))?;
+        terminal.draw(|f| draw_main_layout(f, &mut app, &blocks_to_draw))?;
         if is_first_render {
-            app.init_sqlite().await?;
+            app.init_sqlite(&user_config.behavior.zotero_db_path)
+                .await?;
 
             app.documents.items = Vec::from_iter(get_all_item_data(&mut app).await?);
             get_creators_for_docs(&mut app).await?;
             get_attachments_for_docs(&mut app).await?;
             get_collections(&mut app).await?;
+            app.update_filtered_doc();
             is_first_render = false;
         }
         match events.next()? {
@@ -57,18 +61,23 @@ async fn start_ui(user_config: UserConfig) -> Result<()> {
                     break;
                 }
                 match key {
-                    Key::Down => app.documents.next(),
-                    Key::Up => app.documents.previous(),
+                    Key::Down => app.filtered_documents.next(),
+                    Key::Up => app.filtered_documents.previous(),
                     Key::Backspace => {
                         app.search_input.pop();
-                        app.documents.state.select(Some(0));
+                        app.update_filtered_doc();
                     }
                     Key::Char(c) => {
                         app.search_input.push(c);
-                        app.documents.state.select(Some(0));
+                        app.update_filtered_doc();
                     }
                     Key::Enter => {
-                        handle_enter(&app).await?;
+                        handle_enter(
+                            &app,
+                            &user_config.behavior.zotero_storage_dir,
+                            &user_config.behavior.pdf_viewer,
+                        )
+                        .await?;
                     }
                     _ => {}
                 }
@@ -94,7 +103,7 @@ async fn start_ui(user_config: UserConfig) -> Result<()> {
 async fn main() -> Result<()> {
     // setup terminal
     let mut user_config = UserConfig::new();
-
+    user_config.load_config().unwrap();
     start_ui(user_config).await?;
     Ok(())
 }

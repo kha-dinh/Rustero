@@ -10,6 +10,7 @@ use tui::style::Color;
 const FILE_NAME: &str = "config.yml";
 const CONFIG_DIR: &str = ".config";
 const ZOTERO_DIR: &str = "Zotero";
+const ZOTERO_STORAGE_DIR: &str = "storage";
 const ZOTERO_DB: &str = "zotero.sqlite";
 const APP_CONFIG_DIR: &str = "rustero";
 
@@ -147,12 +148,6 @@ pub struct UserConfigPaths {
     pub config_file_path: PathBuf,
 }
 
-#[derive(Clone)]
-pub struct ZoteroPaths {
-    pub db_path: PathBuf,
-    pub better_bibtex_path: PathBuf,
-}
-
 #[derive(Default, Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct KeyBindingsString {
     back: Option<String>,
@@ -245,6 +240,9 @@ pub struct BehaviorConfig {
     pub playing_icon: String,
     pub paused_icon: String,
     pub set_window_title: bool,
+    pub zotero_storage_dir: PathBuf,
+    pub zotero_db_path: PathBuf,
+    pub pdf_viewer: String,
 }
 
 #[derive(Default, Clone, Debug, PartialEq, Serialize, Deserialize)]
@@ -260,7 +258,6 @@ pub struct UserConfig {
     pub theme: Theme,
     pub behavior: BehaviorConfig,
     pub path_to_config: Option<UserConfigPaths>,
-    pub path_to_zotero: Option<ZoteroPaths>,
 }
 
 impl UserConfig {
@@ -309,9 +306,18 @@ impl UserConfig {
                 playing_icon: "▶".to_string(),
                 paused_icon: "⏸".to_string(),
                 set_window_title: true,
+                zotero_storage_dir: PathBuf::from(
+                    dirs::home_dir().unwrap().join(ZOTERO_DIR).join(ZOTERO_STORAGE_DIR),
+                ),
+                zotero_db_path: PathBuf::from(
+                    dirs::home_dir()
+                        .unwrap()
+                        .join(ZOTERO_DIR)
+                        .join(ZOTERO_DB),
+                ),
+                pdf_viewer: "zathura".to_string(),
             },
             path_to_config: None,
-            path_to_zotero: None,
         }
     }
 

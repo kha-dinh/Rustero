@@ -1,9 +1,16 @@
-use std::env;
+use std::{
+    env,
+    path::{Path, PathBuf},
+};
 
+use fuzzy_matcher::{skim::SkimMatcherV2, FuzzyMatcher};
 use sqlx::SqlitePool;
 use tui::widgets::ListState;
 
-use crate::db_connector::{Collection, Document};
+use crate::{
+    db_connector::{Collection, Document},
+    ui::UIBlock,
+};
 
 pub struct StatefulList<T> {
     pub state: ListState,
@@ -57,8 +64,10 @@ pub struct App {
     pub sqlite_pool: Option<SqlitePool>,
     /// History of recorded messages
     pub documents: StatefulList<Document>,
+    pub filtered_documents: StatefulList<Document>,
     pub collections: StatefulList<Collection>,
-    // documents_state: StatefulList<Document>,
+    pub zotero_dir: PathBuf, // documents_state: StatefulList<Document>,
+    pub active_block: UIBlock,
 }
 
 impl Default for App {
@@ -74,15 +83,42 @@ impl Default for App {
                 state: ListState::default(),
                 items: Vec::new(),
             },
+            filtered_documents: StatefulList {
+                state: ListState::default(),
+                items: Vec::new(),
+            },
+            zotero_dir: PathBuf::new(),
+            active_block: UIBlock::Title(30),
         }
     }
 }
 impl App {
     pub fn update_on_tick(&self) {}
-    pub async fn init_sqlite(&mut self) -> anyhow::Result<()> {
-        dotenv::dotenv().ok();
-        let url = env::var("DATABASE_URL");
-        self.sqlite_pool = Some(SqlitePool::connect(url.as_ref().unwrap()).await?);
+    pub fn update_filtered_doc(&mut self) {
+        let matcher = SkimMatcherV2::default();
+        if !self.search_input.is_empty() {
+            self.filtered_documents.items = self
+                .documents
+                .items
+                .clone()
+                .into_iter()
+                .filter(|doc| {
+                    // Match fuzzy find
+                    matcher
+                        .fuzzy_match(&doc.item_data.title, self.search_input.as_str())
+                        .is_some()
+                })
+                .collect();
+        } else {
+            self.filtered_documents.items = self.documents.items.clone();
+        }
+        self.filtered_documents.state.select(Some(0));
+    }
+    pub async fn init_sqlite(&mut self, db_path: &Path) -> anyhow::Result<()> {
+        // dotenv::dotenv().ok();
+        // let url = env::var("DATABASE_URL");
+        self.sqlite_pool =
+            Some(SqlitePool::connect(&format!("sqlite:{}", db_path.to_str().unwrap())).await?);
         Ok(())
     }
 }

@@ -31,3 +31,6 @@ fuzzy-matcher = "0.3.7"
 bench = false
 path = "src/main.rs"
 name = "rustero"
+
+[profile.release]
+debug = true

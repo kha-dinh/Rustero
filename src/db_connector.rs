@@ -45,6 +45,7 @@ pub struct Collection {
 pub struct Attachment {
     pub contentType: Option<String>,
     pub path: Option<String>,
+    pub key: Option<String>,
 }
 
 #[derive(Debug, Clone)]
@@ -61,8 +62,8 @@ pub async fn get_attachments_for_docs(app: &mut App) -> anyhow::Result<()> {
         let records = query_as!(
             Attachment,
             r#"
-SELECT contentType as "contentType?", path as  "path?" 
-FROM itemAttachments
+SELECT contentType as "contentType?", path as  "path?", key as "key?"
+FROM itemAttachments JOIN items on itemAttachments.itemID = items.itemID
 WHERE parentItemID = ?
 "#,
             doc.item_data.itemId
@@ -143,11 +144,14 @@ FROM
 
 #[cfg(test)]
 mod tests {
+    use crate::user_config::UserConfig;
+
     use super::*;
     #[test]
     fn test_get_all_item_data() {
         let mut app = App::default();
-        tokio_test::block_on(app.init_sqlite()).unwrap();
+        let user_config = UserConfig::new();
+        tokio_test::block_on(app.init_sqlite(&user_config.behavior.zotero_db_path)).unwrap();
         let all_items =
             tokio_test::block_on(get_all_item_data(&mut app)).expect("Expect read all docs");
         // dbg!(&all_items);

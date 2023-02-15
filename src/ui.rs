@@ -16,47 +16,53 @@ use crate::{app::App, db_connector::Document};
 impl fmt::Display for UIBlock {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self {
-            UIBlock::Title => write!(f, "Title"),
-            UIBlock::Creator => write!(f, "Creator"),
-            UIBlock::Year => write!(f, "Year"),
+            UIBlock::Title(_) => write!(f, "Title"),
+            UIBlock::Creator(_) => write!(f, "Creator"),
+            UIBlock::Year(_) => write!(f, "Year"),
+            UIBlock::Collections(_) => write!(f, "Collections"),
         }
     }
 }
 
-enum UIBlock {
-    Title,
-    Creator,
-    Year,
+pub enum UIBlock {
+    Title(usize),
+    Creator(usize),
+    Year(usize),
+    Collections(usize),
 }
 
-fn draw_block<'a, B: Backend, I>(
-    f: &mut Frame<B>,
-    rect: Rect,
-    filtered_docs: I,
-    state: &mut ListState,
-    block: UIBlock,
-) where
-    I: Iterator<Item = &'a Document>,
-{
-    let entries: Vec<ListItem> = filtered_docs
-        .map(|doc| {
-            let header = match block {
-                UIBlock::Title => Span::raw(doc.item_data.title.to_owned()),
-                UIBlock::Year => Span::raw(doc.item_data.pubdate[..4].to_owned().to_string()),
-                UIBlock::Creator => Span::raw(match &doc.creators {
-                    Some(creators) => creators
-                        .get(0)
-                        .unwrap()
-                        .firstName
-                        .as_ref()
-                        .unwrap()
-                        .to_owned(),
-                    None => "Unknown author(s)".to_owned(),
-                }),
-            };
-            ListItem::new(header)
-        })
-        .collect();
+fn draw_items_block<'a, B: Backend>(f: &mut Frame<B>, rect: Rect, app: &mut App, block: &UIBlock) {
+    let entries: Vec<ListItem> = match block {
+        UIBlock::Title(_) => {
+            app.filtered_documents
+                .items
+                .iter()
+                .map(|doc| ListItem::new(Span::raw(doc.item_data.title.to_owned())))
+                .collect()
+        }
+        UIBlock::Creator(_) => {
+            app.filtered_documents
+                .items
+                .iter()
+                .map(|doc| {
+                    ListItem::new(Span::raw(match &doc.creators {
+                        Some(creators) => creators.get(0).unwrap().firstName.as_ref().unwrap().to_owned(),
+                        None => "Unknown author(s)".to_string(),
+                    }))
+                })
+                .collect()
+        }
+        UIBlock::Year(_) => {
+            app.filtered_documents
+                .items
+                .iter()
+                .map(|doc| ListItem::new(Span::raw(&doc.item_data.pubdate[..4]).to_owned()))
+                .collect()
+        }
+        _ => {
+            unreachable!()
+        }
+    };
     let list = List::new(entries)
         .block(
             Block::default()
@@ -70,10 +76,14 @@ fn draw_block<'a, B: Backend, I>(
                 .add_modifier(Modifier::BOLD),
         );
 
-    f.render_stateful_widget(list, rect, state);
+    f.render_stateful_widget(list, rect, &mut app.filtered_documents.state);
 }
 
-pub fn draw_main_layout<B: Backend>(f: &mut Frame<B>, app: &mut App) {
+pub fn draw_main_layout<B: Backend>(
+    f: &mut Frame<B>,
+    app: &mut App,
+    blocks_to_draw: &Vec<UIBlock>,
+) {
     let main_layout = Layout::default()
         .direction(Direction::Vertical)
         .margin(1)
@@ -85,7 +95,6 @@ pub fn draw_main_layout<B: Backend>(f: &mut Frame<B>, app: &mut App) {
         // Move one line down, from the border to the input line
         main_layout[0].y + 1,
     );
-    let blocks_to_draw = vec![UIBlock::Title, UIBlock::Creator, UIBlock::Year];
 
     let collection_split = Layout::default()
         .direction(Direction::Horizontal)
@@ -128,24 +137,9 @@ pub fn draw_main_layout<B: Backend>(f: &mut Frame<B>, app: &mut App) {
         .block(Block::default().borders(Borders::ALL).title("Input"));
     f.render_widget(input, main_layout[0]);
 
-    let matcher = SkimMatcherV2::default();
-
-    let filtered_docs = app.documents.items.iter().filter(|doc| {
-        // Match fuzzy find
-        matcher
-            .fuzzy_match(&doc.item_data.title, app.search_input.as_str())
-            .is_some()
-    });
-
     let mut i = 0;
     for block in blocks_to_draw {
-        draw_block(
-            f,
-            chunks[i],
-            filtered_docs.clone(),
-            &mut app.documents.state,
-            block,
-        );
+        draw_items_block(f, chunks[i], app, block);
         i += 1;
     }
 }
