@@ -1,4 +1,4 @@
-use sqlx::{query_as, SqlitePool};
+use sqlx::query_as;
 
 use crate::app::App;
 // use sqlx::sql
@@ -143,21 +143,16 @@ FROM
 
 #[cfg(test)]
 mod tests {
-    use std::env;
-
     use super::*;
     #[test]
     fn test_get_all_item_data() {
-        dotenv::dotenv().ok();
-        let url = env::var("DATABASE_URL");
-        let pool = tokio_test::block_on(SqlitePool::connect(&url.unwrap())).unwrap();
         let mut app = App::default();
+        tokio_test::block_on(app.init_sqlite()).unwrap();
         let all_items =
             tokio_test::block_on(get_all_item_data(&mut app)).expect("Expect read all docs");
         // dbg!(&all_items);
-        let mut all_docs: Vec<Document> = Vec::from_iter(all_items);
-
-        tokio_test::block_on(get_creators_for_docs(&mut app)).expect("Expect read all docs");
+        let all_docs: Vec<Document> = Vec::from_iter(all_items);
+        tokio_test::block_on(get_creators_for_docs(&mut app)).expect("Expect read all creators");
         tokio_test::block_on(get_attachments_for_docs(&mut app))
             .expect("Expect read all attachments");
         dbg!(all_docs);
