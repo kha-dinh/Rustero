@@ -1,4 +1,6 @@
 use sqlx::{query_as, SqlitePool};
+
+use crate::app::App;
 // use sqlx::sql
 
 // TODO: load attachment
@@ -6,14 +8,16 @@ use sqlx::{query_as, SqlitePool};
 #[derive(Debug, Clone)]
 pub struct Document {
     pub item_data: ItemData,
-    pub creators: Vec<Creator>,
+    pub creators: Option<Vec<Creator>>,
+    pub attachments: Option<Vec<Attachment>>,
 }
 impl FromIterator<ItemData> for Vec<Document> {
     fn from_iter<T: IntoIterator<Item = ItemData>>(iter: T) -> Self {
         iter.into_iter()
             .map(|item| Document {
-                item_data: item.clone(),
-                creators: Vec::new(),
+                item_data: item,
+                creators: None,
+                attachments: None,
             })
             .collect()
     }
@@ -38,13 +42,43 @@ pub struct Collection {
 
 #[derive(Debug, Clone)]
 #[allow(non_snake_case)]
+pub struct Attachment {
+    pub contentType: Option<String>,
+    pub path: Option<String>,
+}
+
+#[derive(Debug, Clone)]
+#[allow(non_snake_case)]
 pub struct Creator {
     pub firstName: Option<String>,
     pub lastName: Option<String>,
 }
 
 #[allow(non_snake_case)]
-pub async fn get_collections(pool: &SqlitePool, col: &mut Vec<Collection>) -> anyhow::Result<()> {
+pub async fn get_attachments_for_docs(app: &mut App) -> anyhow::Result<()> {
+    let pool = app.sqlite_pool.as_ref().unwrap();
+    for doc in &mut app.documents.items {
+        let records = query_as!(
+            Attachment,
+            r#"
+SELECT contentType as "contentType?", path as  "path?" 
+FROM itemAttachments
+WHERE parentItemID = ?
+"#,
+            doc.item_data.itemId
+        )
+        .fetch_all(pool)
+        .await?;
+        if !records.is_empty() {
+            doc.attachments = Some(records);
+        }
+    }
+    Ok(())
+}
+
+#[allow(non_snake_case)]
+pub async fn get_collections(app: &mut App) -> anyhow::Result<()> {
+    let pool = app.sqlite_pool.as_ref().unwrap();
     let records = query_as!(
             Collection,
             r#"
@@ -55,13 +89,13 @@ ORDER BY collectionName
         )
         .fetch_all(pool)
         .await?;
-    col.clone_from(&records);
+    app.collections.items = records;
     Ok(())
 }
-
 #[allow(non_snake_case)]
-pub async fn get_creators(pool: &SqlitePool, docs: &mut Vec<Document>) -> anyhow::Result<()> {
-    for doc in docs {
+pub async fn get_creators_for_docs(app: &mut App) -> anyhow::Result<()> {
+    let pool = app.sqlite_pool.as_ref().unwrap();
+    for doc in &mut app.documents.items {
         let records = query_as!(
             Creator,
             r#"
@@ -74,16 +108,17 @@ ORDER BY itemCreators.orderIndex
         )
         .fetch_all(pool)
         .await?;
-        doc.creators.clone_from(&records);
+        if !records.is_empty() {
+            doc.creators = Some(records);
+        }
     }
     Ok(())
 }
 
 #[allow(non_snake_case)]
-pub async fn get_all_item_data(
-    pool: &SqlitePool,
-    item_data: &mut Vec<ItemData>,
-) -> anyhow::Result<()> {
+pub async fn get_all_item_data(app: &mut App) -> anyhow::Result<Vec<ItemData>> {
+    let pool = app.sqlite_pool.as_ref().unwrap();
+
     // let conn = pool.acquire().await?;
     // let docs = Vec::new();
     let records = query_as!(
@@ -103,8 +138,7 @@ FROM
     )
     .fetch_all(pool)
     .await?;
-    item_data.clone_from(&records);
-    Ok(())
+    Ok(records)
 }
 
 #[cfg(test)]
@@ -113,18 +147,19 @@ mod tests {
 
     use super::*;
     #[test]
-    fn test() {
+    fn test_get_all_item_data() {
         dotenv::dotenv().ok();
-        let mut all_items = Vec::new();
-
         let url = env::var("DATABASE_URL");
         let pool = tokio_test::block_on(SqlitePool::connect(&url.unwrap())).unwrap();
-        tokio_test::block_on(get_all_item_data(&pool, &mut all_items))
-            .expect("Expect read all docs");
+        let mut app = App::default();
+        let all_items =
+            tokio_test::block_on(get_all_item_data(&mut app)).expect("Expect read all docs");
         // dbg!(&all_items);
         let mut all_docs: Vec<Document> = Vec::from_iter(all_items);
 
-        tokio_test::block_on(get_creators(&pool, &mut all_docs)).expect("Expect read all docs");
+        tokio_test::block_on(get_creators_for_docs(&mut app)).expect("Expect read all docs");
+        tokio_test::block_on(get_attachments_for_docs(&mut app))
+            .expect("Expect read all attachments");
         dbg!(all_docs);
     }
 }
