@@ -116,8 +116,7 @@ pub fn draw_main_layout<B: Backend>(f: &mut Frame<B>, app: &mut App) {
         .direction(Direction::Horizontal)
         .constraints(
             [
-                Constraint::Percentage(20),
-                Constraint::Percentage(50),
+                Constraint::Percentage(70),
                 Constraint::Percentage(20),
                 Constraint::Percentage(10),
             ]
@@ -138,7 +137,7 @@ pub fn draw_main_layout<B: Backend>(f: &mut Frame<B>, app: &mut App) {
             .is_some()
     });
 
-    let mut i = 1;
+    let mut i = 0;
     for block in blocks_to_draw {
         draw_block(
             f,
