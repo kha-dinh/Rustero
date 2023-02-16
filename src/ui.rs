@@ -1,4 +1,5 @@
 use core::fmt;
+use std::{cell::RefCell, rc::Rc};
 
 use tui::{
     backend::Backend,
@@ -39,7 +40,7 @@ pub enum UIBlockType {
 
 fn draw_ui_block<'a, B: Backend>(f: &mut Frame<B>, rect: Rect, app: &mut App, idx: usize) {
     let block = app.ui_blocks.get(idx).unwrap();
-    let entries: Vec<ListItem> = match block.ty {
+    let entries: Vec<ListItem> = match block.borrow().ty {
         UIBlockType::Collections => app
             .collections
             .items
@@ -56,33 +57,21 @@ fn draw_ui_block<'a, B: Backend>(f: &mut Frame<B>, rect: Rect, app: &mut App, id
             .filtered_documents
             .items
             .iter()
-            .map(
-                |doc| match &doc.borrow().creators {
-                    Some(creators) => ListItem::new(Spans::from(vec![
-                        Span::raw(
-                            creators
-                                .get(0)
-                                .unwrap()
-                                .firstName
-                                .as_ref()
-                                .unwrap()
-                                .to_owned(),
-                        ),
-                        Span::raw(" "),
-                        Span::raw(
-                            creators
-                                .get(0)
-                                .unwrap()
-                                .lastName
-                                .as_ref()
-                                .unwrap()
-                                .to_owned(),
-                        ),
-                    ])),
-                    None => ListItem::new(Span::raw("Unknown author(s)")),
-                },
-                // }
-            )
+            .map(|doc| {
+                let mut spans = Vec::new();
+                match &doc.borrow().creators[0].firstName {
+                    Some(name) => spans.push(Span::raw(name.to_owned())),
+                    None => {}
+                }
+                match &doc.borrow().creators[0].lastName {
+                    Some(name) => {
+                        spans.push(Span::raw(" "));
+                        spans.push(Span::raw(name.to_owned()))
+                    }
+                    None => {}
+                }
+                ListItem::new(Spans::from(spans))
+            })
             .collect(),
         UIBlockType::Year => app
             .filtered_documents
@@ -100,13 +89,13 @@ fn draw_ui_block<'a, B: Backend>(f: &mut Frame<B>, rect: Rect, app: &mut App, id
         .block(
             Block::default()
                 .borders(Borders::ALL)
-                .border_style(match block.activated {
+                .border_style(match block.borrow().activated {
                     true => Style::default()
                         .add_modifier(Modifier::BOLD)
                         .fg(Color::LightGreen),
                     false => Style::default(),
                 })
-                .title(block.ty.to_string()),
+                .title(block.borrow().ty.to_string()),
         )
         .highlight_style(
             Style::default()
@@ -115,7 +104,7 @@ fn draw_ui_block<'a, B: Backend>(f: &mut Frame<B>, rect: Rect, app: &mut App, id
                 .add_modifier(Modifier::BOLD),
         );
 
-    match block.ty {
+    match block.borrow().ty {
         UIBlockType::Collections => {
             f.render_stateful_widget(list, rect, &mut app.collections.state)
         }
@@ -123,11 +112,11 @@ fn draw_ui_block<'a, B: Backend>(f: &mut Frame<B>, rect: Rect, app: &mut App, id
     }
 }
 
-fn build_constraints(blocks: &Vec<UIBlock>) -> Vec<Constraint> {
+fn build_constraints(blocks: &Vec<Rc<RefCell<UIBlock>>>) -> Vec<Constraint> {
     blocks
         .iter()
         .to_owned()
-        .map(|block| Constraint::Percentage(block.ratio as _))
+        .map(|block| Constraint::Percentage(block.borrow().ratio as _))
         .collect()
 }
 pub fn draw_main_layout<B: Backend>(f: &mut Frame<B>, app: &mut App) {

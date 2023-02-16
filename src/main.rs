@@ -17,6 +17,10 @@ use crossterm::{
     terminal::{disable_raw_mode, enable_raw_mode, EnterAlternateScreen, LeaveAlternateScreen},
 };
 use std::io;
+use std::{
+    cell::{Cell, RefCell},
+    rc::Rc,
+};
 use tokio;
 use tui::{backend::CrosstermBackend, Terminal};
 use ui::{UIBlock, UIBlockType};
@@ -42,26 +46,26 @@ async fn start_ui(user_config: UserConfig) -> Result<()> {
 
     let mut is_first_render = true;
     app.ui_blocks.extend(vec![
-        UIBlock {
+        Rc::new(RefCell::new(UIBlock {
             ratio: 20,
             ty: UIBlockType::Collections,
             activated: false,
-        },
-        UIBlock {
+        })),
+        Rc::new(RefCell::new(UIBlock {
             ratio: 50,
             ty: UIBlockType::Title,
             activated: false,
-        },
-        UIBlock {
+        })),
+        Rc::new(RefCell::new(UIBlock {
             ratio: 20,
             ty: UIBlockType::Creator,
             activated: false,
-        },
-        UIBlock {
+        })),
+        Rc::new(RefCell::new(UIBlock {
             ratio: 10,
             ty: UIBlockType::Year,
             activated: false,
-        },
+        })),
     ]);
     loop {
         terminal.draw(|f| draw_main_layout(f, &mut app))?;
@@ -88,7 +92,13 @@ async fn start_ui(user_config: UserConfig) -> Result<()> {
                     break;
                 }
                 match key {
-                    Key::Down => match app.ui_blocks.get(app.active_block_idx).unwrap().ty {
+                    Key::Down => match app
+                        .ui_blocks
+                        .get(app.active_block_idx.get())
+                        .unwrap()
+                        .borrow()
+                        .ty
+                    {
                         UIBlockType::Collections => {
                             app.collections.next();
                         }
@@ -96,34 +106,33 @@ async fn start_ui(user_config: UserConfig) -> Result<()> {
                             app.filtered_documents.next();
                         }
                     },
-                    Key::Right => {
-                        if app.active_block_idx < app.ui_blocks.len() {
-                            app.ui_blocks
-                                .get_mut(app.active_block_idx)
-                                .unwrap()
-                                .activated = false;
-                            app.active_block_idx += 1;
-                            app.ui_blocks
-                                .get_mut(app.active_block_idx)
-                                .unwrap()
-                                .activated = true;
-                        }
-                    }
+                    Key::Right => app.select_next_block(),
 
                     Key::Left => {
-                        if app.active_block_idx > 0 {
-                            app.ui_blocks
-                                .get_mut(app.active_block_idx)
-                                .unwrap()
-                                .activated = false;
-                            app.active_block_idx -= 1;
-                            app.ui_blocks
-                                .get_mut(app.active_block_idx)
-                                .unwrap()
-                                .activated = true;
-                        }
+                        // NOTE: Using pointer is actually more cumbersome.
+                        // match app.active_block {
+                        //     Some(block) => {
+                        //         let next_block_id = app
+                        //             .ui_blocks
+                        //             .iter()
+                        //             .find(|b| {
+                        //                 b.as_ptr() == app.active_block.as_ref().unwrap().as_ptr()
+                        //             })
+                        //             .unwrap();
+                        //         app.active_block =
+                        //             Some(app.ui_blocks.get(next_block_id).unwrap().clone());
+                        //     }
+                        //     None => {}
+                        // }
+                        app.select_prev_block()
                     }
-                    Key::Up => match app.ui_blocks.get(app.active_block_idx).unwrap().ty {
+                    Key::Up => match app
+                        .ui_blocks
+                        .get(app.active_block_idx.get())
+                        .unwrap()
+                        .borrow()
+                        .ty
+                    {
                         UIBlockType::Collections => {
                             app.collections.previous();
                         }
@@ -135,6 +144,17 @@ async fn start_ui(user_config: UserConfig) -> Result<()> {
                         app.search_input.pop();
                         app.update_filtered_doc();
                     }
+                    Key::Ctrl(c) => match c {
+                        's' => {
+                            app.toggle_sorted();
+                            if app.sorted.get() {
+                                app.sort_documents()
+                            } else {
+                                app.unsort_documents()
+                            }
+                        }
+                        _ => {}
+                    },
                     Key::Char(c) => {
                         app.search_input.push(c);
                         app.update_filtered_doc();

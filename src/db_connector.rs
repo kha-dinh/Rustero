@@ -8,7 +8,7 @@ use crate::app::App;
 #[derive(Debug, Clone)]
 pub struct Document {
     pub item_data: ItemData,
-    pub creators: Option<Vec<Creator>>,
+    pub creators: Vec<Creator>,
     pub attachments: Option<Vec<Attachment>>,
 }
 impl FromIterator<ItemData> for Vec<Rc<RefCell<Document>>> {
@@ -17,7 +17,7 @@ impl FromIterator<ItemData> for Vec<Rc<RefCell<Document>>> {
             .map(|item| {
                 Rc::new(RefCell::new(Document {
                     item_data: item,
-                    creators: None,
+                    creators: Vec::new(),
                     attachments: None,
                 }))
             })
@@ -27,7 +27,7 @@ impl FromIterator<ItemData> for Vec<Rc<RefCell<Document>>> {
 #[derive(Debug, Clone)]
 #[allow(non_snake_case)]
 pub struct ItemData {
-    itemId: i64,
+    pub itemId: i64,
     pub title: String,
     pub abstracttext: String,
     pub pubdate: String,
@@ -55,6 +55,14 @@ pub struct Attachment {
 pub struct Creator {
     pub firstName: Option<String>,
     pub lastName: Option<String>,
+}
+impl Default for Creator {
+    fn default() -> Self {
+        Self {
+            firstName: Some("Unknown author(s)".to_string()),
+            lastName: None,
+        }
+    }
 }
 
 #[allow(non_snake_case)]
@@ -117,7 +125,9 @@ ORDER BY itemCreators.orderIndex
         .fetch_all(pool)
         .await?;
         if !records.is_empty() {
-            doc.borrow_mut().creators = Some(records);
+            doc.borrow_mut().creators.extend(records);
+        } else {
+            doc.borrow_mut().creators.extend(vec![Creator::default()]);
         }
     }
     Ok(())
