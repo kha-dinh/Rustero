@@ -6,7 +6,7 @@ mod ui;
 mod user_config;
 
 use app::App;
-use db_connector::get_all_item_data;
+use db_connector::{get_all_item_data, Collection};
 use handler::*;
 
 use anyhow::Result;
@@ -73,6 +73,12 @@ async fn start_ui(user_config: UserConfig) -> Result<()> {
             get_creators_for_docs(&mut app).await?;
             get_attachments_for_docs(&mut app).await?;
             get_collections(&mut app).await?;
+
+            app.collections.items.push(Collection {
+                collectionId: 0,
+                collectionName: "My Library".to_owned(),
+                parentCollectionId: None,
+            });
             app.update_filtered_doc();
             is_first_render = false;
         }

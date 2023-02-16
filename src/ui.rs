@@ -1,17 +1,16 @@
 use core::fmt;
 
-use fuzzy_matcher::{skim::SkimMatcherV2, FuzzyMatcher};
 use tui::{
     backend::Backend,
     layout::{Constraint, Direction, Layout, Rect},
     style::{Color, Modifier, Style},
     text::{Span, Spans},
-    widgets::{Block, Borders, List, ListItem, ListState, Paragraph},
+    widgets::{Block, Borders, List, ListItem, Paragraph},
     Frame,
 };
 use unicode_width::UnicodeWidthStr;
 
-use crate::{app::App, db_connector::Document};
+use crate::app::App;
 
 impl fmt::Display for UIBlockType {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
@@ -51,18 +50,34 @@ fn draw_ui_block<'a, B: Backend>(f: &mut Frame<B>, rect: Rect, app: &mut App, id
             .filtered_documents
             .items
             .iter()
-            .map(|doc| ListItem::new(Span::raw(doc.item_data.title.to_owned())))
+            .map(|doc| ListItem::new(Span::raw(doc.borrow().item_data.title.to_owned())))
             .collect(),
         UIBlockType::Creator => app
             .filtered_documents
             .items
             .iter()
             .map(
-                |doc| match &doc.creators {
+                |doc| match &doc.borrow().creators {
                     Some(creators) => ListItem::new(Spans::from(vec![
-                        Span::raw(creators.get(0).unwrap().firstName.as_ref().unwrap()),
+                        Span::raw(
+                            creators
+                                .get(0)
+                                .unwrap()
+                                .firstName
+                                .as_ref()
+                                .unwrap()
+                                .to_owned(),
+                        ),
                         Span::raw(" "),
-                        Span::raw(creators.get(0).unwrap().lastName.as_ref().unwrap()),
+                        Span::raw(
+                            creators
+                                .get(0)
+                                .unwrap()
+                                .lastName
+                                .as_ref()
+                                .unwrap()
+                                .to_owned(),
+                        ),
                     ])),
                     None => ListItem::new(Span::raw("Unknown author(s)")),
                 },
@@ -73,7 +88,9 @@ fn draw_ui_block<'a, B: Backend>(f: &mut Frame<B>, rect: Rect, app: &mut App, id
             .filtered_documents
             .items
             .iter()
-            .map(|doc| ListItem::new(Span::raw(&doc.item_data.pubdate[..4]).to_owned()))
+            .map(|doc| {
+                ListItem::new(Span::raw(doc.borrow().item_data.pubdate[..4].to_owned()).to_owned())
+            })
             .collect(),
         _ => {
             unreachable!()
@@ -106,6 +123,13 @@ fn draw_ui_block<'a, B: Backend>(f: &mut Frame<B>, rect: Rect, app: &mut App, id
     }
 }
 
+fn build_constraints(blocks: &Vec<UIBlock>) -> Vec<Constraint> {
+    blocks
+        .iter()
+        .to_owned()
+        .map(|block| Constraint::Percentage(block.ratio as _))
+        .collect()
+}
 pub fn draw_main_layout<B: Backend>(f: &mut Frame<B>, app: &mut App) {
     let main_layout = Layout::default()
         .direction(Direction::Vertical)
@@ -125,17 +149,12 @@ pub fn draw_main_layout<B: Backend>(f: &mut Frame<B>, app: &mut App) {
     f.render_widget(input, main_layout[0]);
 
     // Build contraints for the layout
-    let mut constraints = Vec::new();
-    for b in &app.ui_blocks {
-        constraints.push(Constraint::Percentage(b.ratio as _));
-    }
-
     let chunks = Layout::default()
         .direction(Direction::Horizontal)
-        .constraints(constraints.as_ref())
+        .constraints(build_constraints(&app.ui_blocks))
         .split(main_layout[1]);
 
-    // TODO: Is there a better way?
+    // TODO: Is there a better way to draw the blocks?
     for i in 0..app.ui_blocks.len() {
         draw_ui_block(f, chunks[i], app, i);
     }

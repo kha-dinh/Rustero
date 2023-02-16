@@ -1,6 +1,7 @@
 use std::{
-    env,
+    cell::{Cell, RefCell},
     path::{Path, PathBuf},
+    rc::Rc,
 };
 
 use fuzzy_matcher::{skim::SkimMatcherV2, FuzzyMatcher};
@@ -9,7 +10,7 @@ use tui::widgets::ListState;
 
 use crate::{
     db_connector::{Collection, Document},
-    ui::{UIBlock, UIBlockType},
+    ui::UIBlock,
 };
 
 pub struct StatefulList<T> {
@@ -63,8 +64,8 @@ pub struct App {
     pub search_input: String,
     pub sqlite_pool: Option<SqlitePool>,
     /// History of recorded messages
-    pub documents: Vec<Document>,
-    pub filtered_documents: StatefulList<Document>,
+    pub documents: Vec<Rc<RefCell<Document>>>,
+    pub filtered_documents: StatefulList<Rc<RefCell<Document>>>,
     pub collections: StatefulList<Collection>,
     pub zotero_dir: PathBuf,
     // TODO: putting a reference to uiblock here needs a lot of refactoring
@@ -97,19 +98,22 @@ impl App {
     pub fn update_filtered_doc(&mut self) {
         let matcher = SkimMatcherV2::default();
         if !self.search_input.is_empty() {
-            self.filtered_documents.items = self
-                .documents
-                .clone()
-                .into_iter()
-                .filter(|doc| {
-                    // Match fuzzy find
-                    matcher
-                        .fuzzy_match(&doc.item_data.title, self.search_input.as_str())
-                        .is_some()
-                })
-                .collect();
+            // let collected
+            self.filtered_documents.items.extend(
+                self.documents
+                    .iter()
+                    .filter(|doc| {
+                        // match fuzzy find
+                        matcher
+                            .fuzzy_match(&doc.borrow().item_data.title, self.search_input.as_str())
+                            .is_some()
+                    })
+                    .map(|item| item.clone()),
+            );
         } else {
-            self.filtered_documents.items = self.documents.clone();
+            self.filtered_documents
+                .items
+                .extend(self.documents.iter().map(|item| item.clone()));
         }
         self.filtered_documents.state.select(Some(0));
     }

@@ -1,9 +1,9 @@
+use std::{cell::RefCell, rc::Rc};
+
 use sqlx::query_as;
 
 use crate::app::App;
 // use sqlx::sql
-
-// TODO: load attachment
 
 #[derive(Debug, Clone)]
 pub struct Document {
@@ -11,13 +11,15 @@ pub struct Document {
     pub creators: Option<Vec<Creator>>,
     pub attachments: Option<Vec<Attachment>>,
 }
-impl FromIterator<ItemData> for Vec<Document> {
+impl FromIterator<ItemData> for Vec<Rc<RefCell<Document>>> {
     fn from_iter<T: IntoIterator<Item = ItemData>>(iter: T) -> Self {
         iter.into_iter()
-            .map(|item| Document {
-                item_data: item,
-                creators: None,
-                attachments: None,
+            .map(|item| {
+                Rc::new(RefCell::new(Document {
+                    item_data: item,
+                    creators: None,
+                    attachments: None,
+                }))
             })
             .collect()
     }
@@ -35,9 +37,9 @@ pub struct ItemData {
 #[derive(Debug, Clone)]
 #[allow(non_snake_case)]
 pub struct Collection {
-    collectionId: i64,
+    pub collectionId: i64,
     pub collectionName: String,
-    pub parentCollectionId: i64,
+    pub parentCollectionId: Option<i64>,
 }
 
 #[derive(Debug, Clone)]
@@ -58,7 +60,10 @@ pub struct Creator {
 #[allow(non_snake_case)]
 pub async fn get_attachments_for_docs(app: &mut App) -> anyhow::Result<()> {
     let pool = app.sqlite_pool.as_ref().unwrap();
-    for doc in &mut app.documents{
+
+    for doc in &app.documents {
+        let itemId = doc.borrow().item_data.itemId;
+
         let records = query_as!(
             Attachment,
             r#"
@@ -66,12 +71,12 @@ SELECT contentType as "contentType?", path as  "path?", key as "key?"
 FROM itemAttachments JOIN items on itemAttachments.itemID = items.itemID
 WHERE parentItemID = ?
 "#,
-            doc.item_data.itemId
+            itemId
         )
         .fetch_all(pool)
         .await?;
         if !records.is_empty() {
-            doc.attachments = Some(records);
+            doc.borrow_mut().attachments = Some(records);
         }
     }
     Ok(())
@@ -80,10 +85,11 @@ WHERE parentItemID = ?
 #[allow(non_snake_case)]
 pub async fn get_collections(app: &mut App) -> anyhow::Result<()> {
     let pool = app.sqlite_pool.as_ref().unwrap();
+
     let records = query_as!(
             Collection,
             r#"
-SELECT collectionID as "collectionId!", collectionName as "collectionName!", parentCollectionId as "parentCollectionId!"
+SELECT collectionID as "collectionId!", collectionName as "collectionName!", parentCollectionId as "parentCollectionId?"
 FROM collections
 ORDER BY collectionName
 "#,
@@ -96,7 +102,8 @@ ORDER BY collectionName
 #[allow(non_snake_case)]
 pub async fn get_creators_for_docs(app: &mut App) -> anyhow::Result<()> {
     let pool = app.sqlite_pool.as_ref().unwrap();
-    for doc in &mut app.documents{
+    for doc in &mut app.documents {
+        let itemId = doc.borrow().item_data.itemId;
         let records = query_as!(
             Creator,
             r#"
@@ -105,12 +112,12 @@ FROM creators JOIN itemCreators on itemCreators.creatorID = creators.creatorID
 WHERE itemID = ?
 ORDER BY itemCreators.orderIndex
 "#,
-            doc.item_data.itemId
+            itemId
         )
         .fetch_all(pool)
         .await?;
         if !records.is_empty() {
-            doc.creators = Some(records);
+            doc.borrow_mut().creators = Some(records);
         }
     }
     Ok(())
@@ -155,7 +162,7 @@ mod tests {
         let all_items =
             tokio_test::block_on(get_all_item_data(&mut app)).expect("Expect read all docs");
         // dbg!(&all_items);
-        let all_docs: Vec<Document> = Vec::from_iter(all_items);
+        let all_docs: Vec<Rc<RefCell<Document>>> = Vec::from_iter(all_items);
         tokio_test::block_on(get_creators_for_docs(&mut app)).expect("Expect read all creators");
         tokio_test::block_on(get_attachments_for_docs(&mut app))
             .expect("Expect read all attachments");

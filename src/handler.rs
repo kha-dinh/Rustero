@@ -10,7 +10,7 @@ pub async fn handle_enter(
     match app.filtered_documents.state.selected() {
         Some(index) => {
             let doc = app.filtered_documents.items.get(index).unwrap();
-            match &doc.attachments {
+            match &doc.borrow().attachments {
                 Some(attachments) => {
                     let attachment = &attachments[0];
                     let path = zotero_storage_dir
