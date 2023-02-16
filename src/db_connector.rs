@@ -58,7 +58,7 @@ pub struct Creator {
 #[allow(non_snake_case)]
 pub async fn get_attachments_for_docs(app: &mut App) -> anyhow::Result<()> {
     let pool = app.sqlite_pool.as_ref().unwrap();
-    for doc in &mut app.documents.items {
+    for doc in &mut app.documents{
         let records = query_as!(
             Attachment,
             r#"
@@ -96,7 +96,7 @@ ORDER BY collectionName
 #[allow(non_snake_case)]
 pub async fn get_creators_for_docs(app: &mut App) -> anyhow::Result<()> {
     let pool = app.sqlite_pool.as_ref().unwrap();
-    for doc in &mut app.documents.items {
+    for doc in &mut app.documents{
         let records = query_as!(
             Creator,
             r#"

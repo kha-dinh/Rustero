@@ -9,7 +9,7 @@ use tui::widgets::ListState;
 
 use crate::{
     db_connector::{Collection, Document},
-    ui::UIBlock,
+    ui::{UIBlock, UIBlockType},
 };
 
 pub struct StatefulList<T> {
@@ -63,11 +63,13 @@ pub struct App {
     pub search_input: String,
     pub sqlite_pool: Option<SqlitePool>,
     /// History of recorded messages
-    pub documents: StatefulList<Document>,
+    pub documents: Vec<Document>,
     pub filtered_documents: StatefulList<Document>,
     pub collections: StatefulList<Collection>,
-    pub zotero_dir: PathBuf, // documents_state: StatefulList<Document>,
-    pub active_block: UIBlock,
+    pub zotero_dir: PathBuf,
+    // TODO: putting a reference to uiblock here needs a lot of refactoring
+    pub active_block_idx: usize,
+    pub ui_blocks: Vec<UIBlock>,
 }
 
 impl Default for App {
@@ -75,10 +77,7 @@ impl Default for App {
         App {
             search_input: String::new(),
             sqlite_pool: None,
-            documents: StatefulList {
-                state: ListState::default(),
-                items: Vec::new(),
-            },
+            documents: Vec::new(),
             collections: StatefulList {
                 state: ListState::default(),
                 items: Vec::new(),
@@ -88,7 +87,8 @@ impl Default for App {
                 items: Vec::new(),
             },
             zotero_dir: PathBuf::new(),
-            active_block: UIBlock::Title(30),
+            active_block_idx: 0,
+            ui_blocks: Vec::new(),
         }
     }
 }
@@ -99,7 +99,6 @@ impl App {
         if !self.search_input.is_empty() {
             self.filtered_documents.items = self
                 .documents
-                .items
                 .clone()
                 .into_iter()
                 .filter(|doc| {
@@ -110,7 +109,7 @@ impl App {
                 })
                 .collect();
         } else {
-            self.filtered_documents.items = self.documents.items.clone();
+            self.filtered_documents.items = self.documents.clone();
         }
         self.filtered_documents.state.select(Some(0));
     }

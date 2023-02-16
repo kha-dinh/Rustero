@@ -19,7 +19,7 @@ use crossterm::{
 use std::io;
 use tokio;
 use tui::{backend::CrosstermBackend, Terminal};
-use ui::UIBlock;
+use ui::{UIBlock, UIBlockType};
 
 use crate::db_connector::{get_attachments_for_docs, get_collections, get_creators_for_docs};
 use crate::event::Key;
@@ -41,14 +41,35 @@ async fn start_ui(user_config: UserConfig) -> Result<()> {
     let mut app = App::default();
 
     let mut is_first_render = true;
-    let blocks_to_draw = vec![UIBlock::Title(70), UIBlock::Creator(20), UIBlock::Year(10)];
+    app.ui_blocks.extend(vec![
+        UIBlock {
+            ratio: 20,
+            ty: UIBlockType::Collections,
+            activated: false,
+        },
+        UIBlock {
+            ratio: 50,
+            ty: UIBlockType::Title,
+            activated: false,
+        },
+        UIBlock {
+            ratio: 20,
+            ty: UIBlockType::Creator,
+            activated: false,
+        },
+        UIBlock {
+            ratio: 10,
+            ty: UIBlockType::Year,
+            activated: false,
+        },
+    ]);
     loop {
-        terminal.draw(|f| draw_main_layout(f, &mut app, &blocks_to_draw))?;
+        terminal.draw(|f| draw_main_layout(f, &mut app))?;
         if is_first_render {
             app.init_sqlite(&user_config.behavior.zotero_db_path)
                 .await?;
 
-            app.documents.items = Vec::from_iter(get_all_item_data(&mut app).await?);
+            app.documents = Vec::from_iter(get_all_item_data(&mut app).await?);
             get_creators_for_docs(&mut app).await?;
             get_attachments_for_docs(&mut app).await?;
             get_collections(&mut app).await?;
@@ -61,8 +82,49 @@ async fn start_ui(user_config: UserConfig) -> Result<()> {
                     break;
                 }
                 match key {
-                    Key::Down => app.filtered_documents.next(),
-                    Key::Up => app.filtered_documents.previous(),
+                    Key::Down => match app.ui_blocks.get(app.active_block_idx).unwrap().ty {
+                        UIBlockType::Collections => {
+                            app.collections.next();
+                        }
+                        _ => {
+                            app.filtered_documents.next();
+                        }
+                    },
+                    Key::Right => {
+                        if app.active_block_idx < app.ui_blocks.len() {
+                            app.ui_blocks
+                                .get_mut(app.active_block_idx)
+                                .unwrap()
+                                .activated = false;
+                            app.active_block_idx += 1;
+                            app.ui_blocks
+                                .get_mut(app.active_block_idx)
+                                .unwrap()
+                                .activated = true;
+                        }
+                    }
+
+                    Key::Left => {
+                        if app.active_block_idx > 0 {
+                            app.ui_blocks
+                                .get_mut(app.active_block_idx)
+                                .unwrap()
+                                .activated = false;
+                            app.active_block_idx -= 1;
+                            app.ui_blocks
+                                .get_mut(app.active_block_idx)
+                                .unwrap()
+                                .activated = true;
+                        }
+                    }
+                    Key::Up => match app.ui_blocks.get(app.active_block_idx).unwrap().ty {
+                        UIBlockType::Collections => {
+                            app.collections.previous();
+                        }
+                        _ => {
+                            app.filtered_documents.previous();
+                        }
+                    },
                     Key::Backspace => {
                         app.search_input.pop();
                         app.update_filtered_doc();
