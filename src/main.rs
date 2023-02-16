@@ -17,10 +17,7 @@ use crossterm::{
     terminal::{disable_raw_mode, enable_raw_mode, EnterAlternateScreen, LeaveAlternateScreen},
 };
 use std::io;
-use std::{
-    cell::{Cell, RefCell},
-    rc::Rc,
-};
+use std::{cell::RefCell, rc::Rc};
 use tokio;
 use tui::{backend::CrosstermBackend, Terminal};
 use ui::{UIBlock, UIBlockType};
@@ -107,7 +104,6 @@ async fn start_ui(user_config: UserConfig) -> Result<()> {
                         }
                     },
                     Key::Right => app.select_next_block(),
-
                     Key::Left => {
                         // NOTE: Using pointer is actually more cumbersome.
                         // match app.active_block {
@@ -133,6 +129,7 @@ async fn start_ui(user_config: UserConfig) -> Result<()> {
                         .borrow()
                         .ty
                     {
+                        // TODO: make this more flexible
                         UIBlockType::Collections => {
                             app.collections.previous();
                         }

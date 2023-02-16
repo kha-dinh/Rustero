@@ -68,7 +68,6 @@ pub struct App {
     pub filtered_documents: StatefulList<Rc<RefCell<Document>>>,
     pub collections: StatefulList<Collection>,
     pub zotero_dir: PathBuf,
-    // TODO: putting a reference to uiblock here needs a lot of refactoring
     pub active_block_idx: Cell<usize>,
     pub sorted: Cell<bool>,
     pub sort_direction: Cell<SortDirection>,
@@ -96,7 +95,7 @@ impl Default for App {
                 items: Vec::new(),
             },
             zotero_dir: PathBuf::new(),
-            active_block_idx: Cell::from(0),
+            active_block_idx: Cell::from(1),
             sorted: Cell::from(false),
             ui_blocks: Vec::new(),
         }
@@ -116,7 +115,7 @@ impl App {
     }
     pub fn sort_documents(&mut self) {
         let active_block = self.ui_blocks.get(self.active_block_idx.get()).unwrap();
-        self.filtered_documents.items.sort_by(|a, b| {
+        self.filtered_documents.items.sort_unstable_by(|a, b| {
             let cmp = match &active_block.borrow().ty {
                 UIBlockType::Title => a
                     .borrow()
@@ -204,10 +203,14 @@ impl App {
                 .activated = true;
         }
     }
+    // TODO: adding search character is cheaper because we can reuse the current list to match.
+    // Removing search character should clear and fuzzy search from begining (except for when we
+    // store some kind of history). Leaving it for later
     pub fn update_filtered_doc(&mut self) {
         let matcher = SkimMatcherV2::default();
         if !self.search_input.is_empty() {
             // let collected
+            self.filtered_documents.items.clear();
             self.filtered_documents.items.extend(
                 self.documents
                     .iter()
@@ -220,6 +223,7 @@ impl App {
                     .map(|item| item.clone()),
             );
         } else {
+            self.filtered_documents.items.clear();
             self.filtered_documents
                 .items
                 .extend(self.documents.iter().map(|item| item.clone()));
