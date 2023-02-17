@@ -2,6 +2,7 @@ use std::{path::Path, process::Command};
 
 use crate::App;
 
+// TODO: Should use user_config instead of viewer
 pub async fn handle_enter(
     app: &App,
     zotero_storage_dir: &Path,
@@ -12,11 +13,17 @@ pub async fn handle_enter(
             let doc = app.filtered_documents.items.get(index).unwrap();
             match &doc.borrow().attachments {
                 Some(attachments) => {
-                    let attachment = &attachments[0];
-                    let path = zotero_storage_dir
-                        .join(&attachment.key.as_ref().unwrap())
-                        .join(&attachment.path.as_ref().unwrap()[":storage".len()..]);
-                    Command::new(viewer).arg(&path).spawn()?;
+                    for att in attachments {
+                        // TODO: Choose between different attachments
+                        if att.contentType.as_ref().unwrap().contains("pdf") {
+                            let path = zotero_storage_dir
+                                .join(&att.key.as_ref().unwrap())
+                                .join(&att.path.as_ref().unwrap()[":storage".len()..]);
+                            Command::new(viewer).arg(&path).spawn()?;
+                            break;
+                        }
+                    }
+                    // let attachment = &attachments[0];
                 }
                 None => {}
             }

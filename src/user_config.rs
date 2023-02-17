@@ -223,6 +223,7 @@ pub struct BehaviorConfigString {
     pub playing_icon: Option<String>,
     pub paused_icon: Option<String>,
     pub set_window_title: Option<bool>,
+    pub pdf_viewer: Option<String>,
 }
 
 #[derive(Clone)]
@@ -477,6 +478,9 @@ impl UserConfig {
             self.behavior.set_window_title = set_window_title;
         }
 
+        if let Some(pdf_viewer) = behavior_config.pdf_viewer {
+            self.behavior.pdf_viewer = pdf_viewer;
+        }
         Ok(())
     }
 
