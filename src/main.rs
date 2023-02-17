@@ -111,8 +111,14 @@ async fn start_ui(user_config: UserConfig) -> Result<()> {
                             app.filtered_documents.next();
                         }
                     },
-                    Key::Right => app.select_next_block(),
-                    Key::Left => app.select_prev_block(),
+                    Key::Right => {
+                        app.select_next_block();
+                        app.update_filtered_doc();
+                    }
+                    Key::Left => {
+                        app.select_prev_block();
+                        app.update_filtered_doc();
+                    }
                     Key::Up => match app
                         .ui_blocks
                         .get(app.active_block_idx.get())
@@ -149,7 +155,11 @@ async fn start_ui(user_config: UserConfig) -> Result<()> {
                             app.update_filtered_doc();
                         } else {
                             if c == '/' {
-                                app.sort_by_type = app.get_active_block().borrow().ty;
+                                if app.get_active_block().borrow().ty.is_searchable() {
+                                    app.sort_by_type = app.get_active_block().borrow().ty;
+                                } else {
+                                    app.sort_by_type = UIBlockType::Title;
+                                }
                                 // app.previous_block_idx.set(app.active_block_idx.get());
                                 app.set_active_block_with_type(UIBlockType::Input);
                             }

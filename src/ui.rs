@@ -5,7 +5,7 @@ use tui::{
     backend::Backend,
     layout::{Constraint, Direction, Layout, Rect},
     style::{Color, Modifier, Style},
-    text::{Span},
+    text::Span,
     widgets::{Block, Borders, List, ListItem, Paragraph},
     Frame,
 };
@@ -39,6 +39,11 @@ pub enum UIBlockType {
     Creator,
     Year,
     Collections,
+}
+impl UIBlockType {
+    pub fn is_searchable(&self) -> bool {
+        !matches!(self, Self::Menu | Self::Input | Self::Collections)
+    }
 }
 
 fn draw_ui_block<'a, B: Backend>(f: &mut Frame<B>, rect: Rect, app: &mut App, block: RcUIBlock) {
