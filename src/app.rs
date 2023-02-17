@@ -9,7 +9,7 @@ use sqlx::SqlitePool;
 use tui::widgets::ListState;
 
 use crate::{
-    db_connector::{Collection, Document},
+    data_structures::{Collection, Document},
     ui::{UIBlock, UIBlockType},
 };
 
@@ -114,46 +114,14 @@ impl App {
         }
     }
     pub fn sort_documents(&mut self) {
-        let active_block = self.ui_blocks.get(self.active_block_idx.get()).unwrap();
+        // let active_block = self.ui_blocks.get(self.active_block_idx.get()).unwrap();
+        let ty = self.get_active_block().borrow().ty;
         self.filtered_documents.items.sort_unstable_by(|a, b| {
-            let cmp = match &active_block.borrow().ty {
-                UIBlockType::Title => a
-                    .borrow()
-                    .item_data
-                    .title
-                    .partial_cmp(&b.borrow().item_data.title)
-                    .unwrap(),
-                UIBlockType::Year => a.borrow().item_data.pubdate[..4]
-                    .partial_cmp(&b.borrow().item_data.pubdate[..4])
-                    .unwrap(),
-                // WTF is this
-                UIBlockType::Creator => a
-                    .borrow()
-                    .creators
-                    .get(0)
-                    .unwrap()
-                    .firstName
-                    .as_ref()
-                    .unwrap()
-                    .to_owned()
-                    .partial_cmp(
-                        &b.borrow()
-                            .creators
-                            .get(0)
-                            .unwrap()
-                            .firstName
-                            .as_ref()
-                            .unwrap()
-                            .to_owned(),
-                    )
-                    .unwrap(),
-                _ => a
-                    .borrow()
-                    .item_data
-                    .itemId
-                    .partial_cmp(&b.borrow().item_data.itemId)
-                    .unwrap(),
-            };
+            let _a = a.borrow();
+            let _b = b.borrow();
+            let cmp_str_a = _a.get_str_for_block_type(ty);
+            let cmp_str_b = _b.get_str_for_block_type(ty);
+            let cmp = cmp_str_a.partial_cmp(cmp_str_b).unwrap();
             match self.sort_direction.get() {
                 SortDirection::Down => cmp.reverse(),
                 SortDirection::Up => cmp,
@@ -172,61 +140,70 @@ impl App {
     pub fn select_next_block(&mut self) {
         let cur_idx = self.active_block_idx.get();
         if self.active_block_idx.get() < self.ui_blocks.len() - 1 {
-            self.ui_blocks
-                .get_mut(self.active_block_idx.get())
-                .unwrap()
-                .borrow_mut()
-                .activated = false;
-            let new_idx = cur_idx + 1;
-            self.active_block_idx.set(new_idx);
-            self.ui_blocks
-                .get_mut(new_idx)
-                .unwrap()
-                .borrow_mut()
-                .activated = true;
+            self.get_active_block().borrow_mut().activated = false;
+            self.active_block_idx.set(cur_idx + 1);
+            self.get_active_block().borrow_mut().activated = true;
         }
+    }
+    // NOTE: Using pointer is actually more cumbersome than just using an index.
+    // match app.active_block {
+    //     Some(block) => {
+    //         let next_block_id = app
+    //             .ui_blocks
+    //             .iter()
+    //             .find(|b| {
+    //                 b.as_ptr() == app.active_block.as_ref().unwrap().as_ptr()
+    //             })
+    //             .unwrap();
+    //         app.active_block =
+    //             Some(app.ui_blocks.get(next_block_id).unwrap().clone());
+    //     }
+    //     None => {}
+    // }
+    pub fn get_active_block(&self) -> Rc<RefCell<UIBlock>> {
+        self.ui_blocks
+            .get(self.active_block_idx.get())
+            .unwrap()
+            .clone()
     }
     pub fn select_prev_block(&mut self) {
         let cur_idx = self.active_block_idx.get();
         if self.active_block_idx.get() > 0 {
-            self.ui_blocks
-                .get_mut(self.active_block_idx.get())
-                .unwrap()
-                .borrow_mut()
-                .activated = false;
-            let new_idx = cur_idx - 1;
-            self.active_block_idx.set(new_idx);
-            self.ui_blocks
-                .get_mut(new_idx)
-                .unwrap()
-                .borrow_mut()
-                .activated = true;
+            self.get_active_block().borrow_mut().activated = false;
+            self.active_block_idx.set(cur_idx - 1);
+            self.get_active_block().borrow_mut().activated = true;
         }
     }
-    // TODO: adding search character is cheaper because we can reuse the current list to match.
-    // Removing search character should clear and fuzzy search from begining (except for when we
-    // store some kind of history). Leaving it for later
     pub fn update_filtered_doc(&mut self) {
         let matcher = SkimMatcherV2::default();
         if !self.search_input.is_empty() {
-            // let collected
+            // TODO: adding search character is cheaper because we can reuse the current list to match.
+            // Removing search character should clear and fuzzy search from begining (except for when we
+            // store some kind of history). Leaving it for later
             self.filtered_documents.items.clear();
+            let active_block_ty = self.get_active_block().borrow().ty;
             self.filtered_documents.items.extend(
                 self.documents
                     .iter()
                     .filter(|doc| {
                         // match fuzzy find
+                        // TODO: maybe we should cache headers somewhere so we dont have to build
+                        // string every time.
+                        let entry = doc.borrow().build_header_for_block_type(active_block_ty);
                         matcher
-                            .fuzzy_match(&doc.borrow().item_data.title, self.search_input.as_str())
+                            .fuzzy_match(&entry, self.search_input.as_str())
                             .is_some()
                     })
                     .map(|item| item.clone()),
             );
         } else {
-            self.filtered_documents.items.clear();
-            self.filtered_documents
-                .items
-                .extend(self.documents.iter().map(|item| item.clone()));
+            // Reclone only if it is less than max len.
+            if self.filtered_documents.items.len() < self.documents.len() {
+                self.filtered_documents.items.clear();
+                self.filtered_documents
+                    .items
+                    .extend(self.documents.iter().map(|item| item.clone()));
+            }
         }
         self.filtered_documents.state.select(Some(0));
     }

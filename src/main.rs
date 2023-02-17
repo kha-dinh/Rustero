@@ -1,4 +1,5 @@
 mod app;
+mod data_structures;
 mod db_connector;
 mod event;
 mod handler;
@@ -6,7 +7,8 @@ mod ui;
 mod user_config;
 
 use app::App;
-use db_connector::{get_all_item_data, Collection};
+use data_structures::Collection;
+use db_connector::get_all_item_data;
 use handler::*;
 
 use anyhow::Result;
@@ -104,24 +106,7 @@ async fn start_ui(user_config: UserConfig) -> Result<()> {
                         }
                     },
                     Key::Right => app.select_next_block(),
-                    Key::Left => {
-                        // NOTE: Using pointer is actually more cumbersome.
-                        // match app.active_block {
-                        //     Some(block) => {
-                        //         let next_block_id = app
-                        //             .ui_blocks
-                        //             .iter()
-                        //             .find(|b| {
-                        //                 b.as_ptr() == app.active_block.as_ref().unwrap().as_ptr()
-                        //             })
-                        //             .unwrap();
-                        //         app.active_block =
-                        //             Some(app.ui_blocks.get(next_block_id).unwrap().clone());
-                        //     }
-                        //     None => {}
-                        // }
-                        app.select_prev_block()
-                    }
+                    Key::Left => app.select_prev_block(),
                     Key::Up => match app
                         .ui_blocks
                         .get(app.active_block_idx.get())

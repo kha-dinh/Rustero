@@ -30,6 +30,7 @@ pub struct UIBlock {
     pub ty: UIBlockType,
     pub activated: bool,
 }
+#[derive(Clone, Copy)]
 pub enum UIBlockType {
     Input,
     Title,
@@ -40,50 +41,21 @@ pub enum UIBlockType {
 
 fn draw_ui_block<'a, B: Backend>(f: &mut Frame<B>, rect: Rect, app: &mut App, idx: usize) {
     let block = app.ui_blocks.get(idx).unwrap();
-    let entries: Vec<ListItem> = match block.borrow().ty {
+    let block_ty = block.borrow().ty;
+    let entries: Vec<ListItem> = match block_ty {
+        UIBlockType::Input => unreachable!(),
         UIBlockType::Collections => app
             .collections
             .items
             .iter()
             .map(|col| ListItem::new(Span::raw(&col.collectionName)))
             .collect(),
-        UIBlockType::Title => app
+        _ => app
             .filtered_documents
             .items
             .iter()
-            .map(|doc| ListItem::new(Span::raw(doc.borrow().item_data.title.to_owned())))
+            .map(|doc| ListItem::new(Span::raw(doc.borrow().build_header_for_block_type(block_ty))))
             .collect(),
-        UIBlockType::Creator => app
-            .filtered_documents
-            .items
-            .iter()
-            .map(|doc| {
-                let mut spans = Vec::new();
-                match &doc.borrow().creators[0].firstName {
-                    Some(name) => spans.push(Span::raw(name.to_owned())),
-                    None => {}
-                }
-                match &doc.borrow().creators[0].lastName {
-                    Some(name) => {
-                        spans.push(Span::raw(" "));
-                        spans.push(Span::raw(name.to_owned()))
-                    }
-                    None => {}
-                }
-                ListItem::new(Spans::from(spans))
-            })
-            .collect(),
-        UIBlockType::Year => app
-            .filtered_documents
-            .items
-            .iter()
-            .map(|doc| {
-                ListItem::new(Span::raw(doc.borrow().item_data.pubdate[..4].to_owned()).to_owned())
-            })
-            .collect(),
-        _ => {
-            unreachable!()
-        }
     };
     let list = List::new(entries)
         .block(
@@ -104,7 +76,8 @@ fn draw_ui_block<'a, B: Backend>(f: &mut Frame<B>, rect: Rect, app: &mut App, id
                 .add_modifier(Modifier::BOLD),
         );
 
-    match block.borrow().ty {
+    match block_ty {
+        UIBlockType::Input => unreachable!(),
         UIBlockType::Collections => {
             f.render_stateful_widget(list, rect, &mut app.collections.state)
         }

@@ -1,69 +1,10 @@
+use crate::data_structures::*;
 use std::{cell::RefCell, rc::Rc};
 
 use sqlx::query_as;
 
 use crate::app::App;
 // use sqlx::sql
-
-#[derive(Debug, Clone)]
-pub struct Document {
-    pub item_data: ItemData,
-    pub creators: Vec<Creator>,
-    pub attachments: Option<Vec<Attachment>>,
-}
-impl FromIterator<ItemData> for Vec<Rc<RefCell<Document>>> {
-    fn from_iter<T: IntoIterator<Item = ItemData>>(iter: T) -> Self {
-        iter.into_iter()
-            .map(|item| {
-                Rc::new(RefCell::new(Document {
-                    item_data: item,
-                    creators: Vec::new(),
-                    attachments: None,
-                }))
-            })
-            .collect()
-    }
-}
-#[derive(Debug, Clone)]
-#[allow(non_snake_case)]
-pub struct ItemData {
-    pub itemId: i64,
-    pub title: String,
-    pub abstracttext: String,
-    pub pubdate: String,
-    pub key: String,
-}
-
-#[derive(Debug, Clone)]
-#[allow(non_snake_case)]
-pub struct Collection {
-    pub collectionId: i64,
-    pub collectionName: String,
-    pub parentCollectionId: Option<i64>,
-}
-
-#[derive(Debug, Clone)]
-#[allow(non_snake_case)]
-pub struct Attachment {
-    pub contentType: Option<String>,
-    pub path: Option<String>,
-    pub key: Option<String>,
-}
-
-#[derive(Debug, Clone)]
-#[allow(non_snake_case)]
-pub struct Creator {
-    pub firstName: Option<String>,
-    pub lastName: Option<String>,
-}
-impl Default for Creator {
-    fn default() -> Self {
-        Self {
-            firstName: Some("Unknown author(s)".to_string()),
-            lastName: None,
-        }
-    }
-}
 
 #[allow(non_snake_case)]
 pub async fn get_attachments_for_docs(app: &mut App) -> anyhow::Result<()> {
