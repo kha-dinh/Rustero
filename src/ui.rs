@@ -30,7 +30,7 @@ pub struct UIBlock {
     pub ty: UIBlockType,
     pub activated: bool,
 }
-#[derive(Clone, Copy)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum UIBlockType {
     Input,
     Title,
@@ -54,7 +54,11 @@ fn draw_ui_block<'a, B: Backend>(f: &mut Frame<B>, rect: Rect, app: &mut App, id
             .filtered_documents
             .items
             .iter()
-            .map(|doc| ListItem::new(Span::raw(doc.borrow().build_header_for_block_type(block_ty))))
+            .map(|doc| {
+                ListItem::new(Span::raw(
+                    doc.borrow().build_header_for_block_type(block_ty),
+                ))
+            })
             .collect(),
     };
     let list = List::new(entries)
@@ -86,9 +90,11 @@ fn draw_ui_block<'a, B: Backend>(f: &mut Frame<B>, rect: Rect, app: &mut App, id
 }
 
 fn build_constraints(blocks: &Vec<Rc<RefCell<UIBlock>>>) -> Vec<Constraint> {
+    //HACK:  UI block is always at 0
     blocks
         .iter()
         .to_owned()
+        .filter(|block| block.borrow().ty != UIBlockType::Input)
         .map(|block| Constraint::Percentage(block.borrow().ratio as _))
         .collect()
 }
@@ -106,8 +112,24 @@ pub fn draw_main_layout<B: Backend>(f: &mut Frame<B>, app: &mut App) {
         main_layout[0].y + 1,
     );
 
-    let input = Paragraph::new(app.search_input.as_ref())
-        .block(Block::default().borders(Borders::ALL).title("Input"));
+    let input = Paragraph::new(app.search_input.as_ref()).block(
+        Block::default()
+            .borders(Borders::ALL)
+            .border_style(
+                match app
+                    .get_block_with_type(UIBlockType::Input)
+                    .borrow()
+                    .activated
+                {
+                    true => Style::default()
+                        .add_modifier(Modifier::BOLD)
+                        .fg(Color::LightGreen),
+                    false => Style::default(),
+                },
+            )
+            .title("Input"),
+    );
+
     f.render_widget(input, main_layout[0]);
 
     // Build contraints for the layout
@@ -116,8 +138,9 @@ pub fn draw_main_layout<B: Backend>(f: &mut Frame<B>, app: &mut App) {
         .constraints(build_constraints(&app.ui_blocks))
         .split(main_layout[1]);
 
-    // TODO: Is there a better way to draw the blocks?
-    for i in 0..app.ui_blocks.len() {
-        draw_ui_block(f, chunks[i], app, i);
+    // TODO: Please fix this ugly code
+    //HACK: UI block is always 0
+    for i in 1..app.ui_blocks.len() {
+        draw_ui_block(f, chunks[i - 1], app, i);
     }
 }

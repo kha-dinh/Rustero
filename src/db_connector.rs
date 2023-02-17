@@ -25,7 +25,7 @@ WHERE parentItemID = ?
         .fetch_all(pool)
         .await?;
         if !records.is_empty() {
-            doc.borrow_mut().attachments = Some(records);
+            doc.borrow_mut().attachments = Some(StatefulList::with_items(records));
         }
     }
     Ok(())

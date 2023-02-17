@@ -1,15 +1,84 @@
-use std::{rc::Rc, cell::RefCell};
+use std::{
+    cell::{Cell, RefCell},
+    rc::Rc,
+};
+
+use tui::widgets::ListState;
 
 use crate::ui::UIBlockType;
 
-#[derive(Debug, Clone)]
+#[derive(Debug)]
+pub struct StatefulList<T> {
+    pub state: ListState,
+    pub items: Vec<T>,
+}
+
+impl<T> StatefulList<T> {
+    pub fn with_items(items: Vec<T>) -> StatefulList<T> {
+        StatefulList {
+            state: ListState::default(),
+            items,
+        }
+    }
+
+    pub fn next(&mut self) {
+        let i = match self.state.selected() {
+            Some(i) => {
+                if i >= self.items.len() - 1 {
+                    0
+                } else {
+                    i + 1
+                }
+            }
+            None => 0,
+        };
+        self.state.select(Some(i));
+    }
+
+    pub fn previous(&mut self) {
+        let i = match self.state.selected() {
+            Some(i) => {
+                if i == 0 {
+                    self.items.len() - 1
+                } else {
+                    i - 1
+                }
+            }
+            None => 0,
+        };
+        self.state.select(Some(i));
+    }
+
+    pub fn unselect(&mut self) {
+        self.state.select(None);
+    }
+}
+#[derive(Debug)]
 pub struct Document {
     pub item_data: ItemData,
     pub creators: Vec<Creator>,
-    pub attachments: Option<Vec<Attachment>>,
+    pub attachments: Option<StatefulList<Attachment>>,
+    pub toggled: Cell<bool>,
+}
+impl FromIterator<ItemData> for Vec<Rc<RefCell<Document>>> {
+    fn from_iter<T: IntoIterator<Item = ItemData>>(iter: T) -> Self {
+        iter.into_iter()
+            .map(|item| {
+                Rc::new(RefCell::new(Document {
+                    toggled: Cell::from(false),
+                    item_data: item,
+                    creators: Vec::new(),
+                    attachments: None,
+                }))
+            })
+            .collect()
+    }
 }
 
 impl Document {
+    pub fn toggle(&mut self) {
+        self.toggled.set(!self.toggled.get());
+    }
     pub fn get_cmp_str_for_block_type(&self, ty: UIBlockType) -> &str {
         match ty {
             UIBlockType::Title => self.get_title(),
@@ -89,20 +158,6 @@ impl Document {
         &self.item_data.pubdate[..4]
     }
 }
-impl FromIterator<ItemData> for Vec<Rc<RefCell<Document>>> {
-    fn from_iter<T: IntoIterator<Item = ItemData>>(iter: T) -> Self {
-        iter.into_iter()
-            .map(|item| {
-                Rc::new(RefCell::new(Document {
-                    item_data: item,
-                    creators: Vec::new(),
-                    attachments: None,
-                }))
-            })
-            .collect()
-    }
-}
-
 #[derive(Debug, Clone)]
 #[allow(non_snake_case)]
 pub struct ItemData {

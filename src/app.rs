@@ -9,55 +9,10 @@ use sqlx::SqlitePool;
 use tui::widgets::ListState;
 
 use crate::{
-    data_structures::{Collection, Document},
+    data_structures::{Collection, Document, StatefulList},
     ui::{UIBlock, UIBlockType},
 };
 
-pub struct StatefulList<T> {
-    pub state: ListState,
-    pub items: Vec<T>,
-}
-
-impl<T> StatefulList<T> {
-    fn with_items(items: Vec<T>) -> StatefulList<T> {
-        StatefulList {
-            state: ListState::default(),
-            items,
-        }
-    }
-
-    pub fn next(&mut self) {
-        let i = match self.state.selected() {
-            Some(i) => {
-                if i >= self.items.len() - 1 {
-                    0
-                } else {
-                    i + 1
-                }
-            }
-            None => 0,
-        };
-        self.state.select(Some(i));
-    }
-
-    pub fn previous(&mut self) {
-        let i = match self.state.selected() {
-            Some(i) => {
-                if i == 0 {
-                    self.items.len() - 1
-                } else {
-                    i - 1
-                }
-            }
-            None => 0,
-        };
-        self.state.select(Some(i));
-    }
-
-    fn unselect(&mut self) {
-        self.state.select(None);
-    }
-}
 /// App holds the state of the application
 pub struct App {
     /// Current value of the input box
@@ -69,7 +24,11 @@ pub struct App {
     pub collections: StatefulList<Collection>,
     pub zotero_dir: PathBuf,
     pub active_block_idx: Cell<usize>,
+    pub previous_block_idx: Cell<usize>,
     pub sorted: Cell<bool>,
+    pub show_popup: Cell<bool>,
+    pub sort_by_type: UIBlockType,
+    pub error_message: String,
     pub sort_direction: Cell<SortDirection>,
     pub ui_blocks: Vec<Rc<RefCell<UIBlock>>>,
 }
@@ -86,6 +45,7 @@ impl Default for App {
             search_input: String::new(),
             sqlite_pool: None,
             documents: Vec::new(),
+            error_message: String::new(),
             collections: StatefulList {
                 state: ListState::default(),
                 items: Vec::new(),
@@ -96,8 +56,11 @@ impl Default for App {
             },
             zotero_dir: PathBuf::new(),
             active_block_idx: Cell::from(1),
-            sorted: Cell::from(false),
+            previous_block_idx: Cell::from(1),
+            sort_by_type: UIBlockType::Title,
             ui_blocks: Vec::new(),
+            sorted: Cell::from(false),
+            show_popup: Cell::from(false),
         }
     }
 }
@@ -142,8 +105,11 @@ impl App {
         if self.active_block_idx.get() < self.ui_blocks.len() - 1 {
             self.get_active_block().borrow_mut().activated = false;
             self.active_block_idx.set(cur_idx + 1);
-            self.get_active_block().borrow_mut().activated = true;
+            self.refresh_active_block();
         }
+    }
+    pub fn refresh_active_block(&mut self) {
+        self.get_active_block().borrow_mut().activated = true;
     }
     // NOTE: Using pointer is actually more cumbersome than just using an index.
     // match app.active_block {
@@ -160,6 +126,34 @@ impl App {
     //     }
     //     None => {}
     // }
+    pub fn get_selected_doc(&self) -> Option<Rc<RefCell<Document>>> {
+        if let Some(idx) = self.filtered_documents.state.selected() {
+            Some(self.filtered_documents.items.get(idx).unwrap().clone())
+        } else {
+            None
+        }
+    }
+    pub fn get_block_with_type(&self, ty: UIBlockType) -> Rc<RefCell<UIBlock>> {
+        self.ui_blocks
+            .iter()
+            .find(|block| block.borrow().ty == ty)
+            .unwrap()
+            .clone()
+    }
+    pub fn set_active_block_with_type(&mut self, ty: UIBlockType) {
+        self.get_active_block().borrow_mut().activated = false;
+        let new_block_idx = self
+            .ui_blocks
+            .iter()
+            .position(|block| block.borrow().ty == ty)
+            .unwrap();
+        self.active_block_idx.set(new_block_idx);
+        self.ui_blocks
+            .get(new_block_idx)
+            .unwrap()
+            .borrow_mut()
+            .activated = true;
+    }
     pub fn get_active_block(&self) -> Rc<RefCell<UIBlock>> {
         self.ui_blocks
             .get(self.active_block_idx.get())
@@ -181,7 +175,6 @@ impl App {
             // Removing search character should clear and fuzzy search from begining (except for when we
             // store some kind of history). Leaving it for later
             self.filtered_documents.items.clear();
-            let active_block_ty = self.get_active_block().borrow().ty;
             self.filtered_documents.items.extend(
                 self.documents
                     .iter()
@@ -189,7 +182,7 @@ impl App {
                         // match fuzzy find
                         // TODO: maybe we should cache headers somewhere so we dont have to build
                         // string every time.
-                        let entry = doc.borrow().build_header_for_block_type(active_block_ty);
+                        let entry = doc.borrow().build_header_for_block_type(self.sort_by_type);
                         matcher
                             .fuzzy_match(&entry, self.search_input.as_str())
                             .is_some()

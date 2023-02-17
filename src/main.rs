@@ -46,6 +46,11 @@ async fn start_ui(user_config: UserConfig) -> Result<()> {
     let mut is_first_render = true;
     app.ui_blocks.extend(vec![
         Rc::new(RefCell::new(UIBlock {
+            ratio: 10,
+            ty: UIBlockType::Input,
+            activated: false,
+        })),
+        Rc::new(RefCell::new(UIBlock {
             ratio: 20,
             ty: UIBlockType::Collections,
             activated: false,
@@ -76,6 +81,7 @@ async fn start_ui(user_config: UserConfig) -> Result<()> {
             get_creators_for_docs(&mut app).await?;
             get_attachments_for_docs(&mut app).await?;
             get_collections(&mut app).await?;
+            app.refresh_active_block();
 
             app.collections.items.push(Collection {
                 collectionId: 0,
@@ -138,8 +144,22 @@ async fn start_ui(user_config: UserConfig) -> Result<()> {
                         _ => {}
                     },
                     Key::Char(c) => {
-                        app.search_input.push(c);
-                        app.update_filtered_doc();
+                        if app.get_active_block().borrow().ty == UIBlockType::Input {
+                            app.search_input.push(c);
+                            app.update_filtered_doc();
+                        } else {
+                            if c == '/' {
+                                app.sort_by_type = app.get_active_block().borrow().ty;
+                                // app.previous_block_idx.set(app.active_block_idx.get());
+                                app.set_active_block_with_type(UIBlockType::Input);
+                            }
+                        }
+                    }
+                    Key::Esc => {
+                        // Set activate block back to before entering input
+                        if app.get_active_block().borrow().ty == UIBlockType::Input {
+                            app.set_active_block_with_type(app.sort_by_type);
+                        }
                     }
                     Key::Enter => {
                         handle_enter(
