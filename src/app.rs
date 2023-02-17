@@ -9,8 +9,8 @@ use sqlx::SqlitePool;
 use tui::widgets::ListState;
 
 use crate::{
-    data_structures::{Collection, Document, StatefulList},
-    ui::{UIBlock, UIBlockType},
+    data_structures::{Collection, Document, RcDoc, StatefulList},
+    ui::{UIBlock, UIBlockType, RcUIBlock},
 };
 
 /// App holds the state of the application
@@ -19,10 +19,11 @@ pub struct App {
     pub search_input: String,
     pub sqlite_pool: Option<SqlitePool>,
     /// History of recorded messages
-    pub documents: Vec<Rc<RefCell<Document>>>,
-    pub filtered_documents: StatefulList<Rc<RefCell<Document>>>,
+    pub documents: Vec<RcDoc>,
+
+    pub active_block: Option<Box<dyn Iterator<Item = RcUIBlock>>>,
+    pub filtered_documents: StatefulList<RcDoc>,
     pub collections: StatefulList<Collection>,
-    pub zotero_dir: PathBuf,
     pub active_block_idx: Cell<usize>,
     pub previous_block_idx: Cell<usize>,
     pub sorted: Cell<bool>,
@@ -41,6 +42,7 @@ pub enum SortDirection {
 impl Default for App {
     fn default() -> App {
         App {
+            active_block: None,
             sort_direction: Cell::from(SortDirection::Up),
             search_input: String::new(),
             sqlite_pool: None,
@@ -54,7 +56,6 @@ impl Default for App {
                 state: ListState::default(),
                 items: Vec::new(),
             },
-            zotero_dir: PathBuf::new(),
             active_block_idx: Cell::from(1),
             previous_block_idx: Cell::from(1),
             sort_by_type: UIBlockType::Title,
@@ -126,7 +127,7 @@ impl App {
     //     }
     //     None => {}
     // }
-    pub fn get_selected_doc(&self) -> Option<Rc<RefCell<Document>>> {
+    pub fn get_selected_doc(&self) -> Option<RcDoc> {
         if let Some(idx) = self.filtered_documents.state.selected() {
             Some(self.filtered_documents.items.get(idx).unwrap().clone())
         } else {

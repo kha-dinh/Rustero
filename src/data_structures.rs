@@ -53,6 +53,7 @@ impl<T> StatefulList<T> {
         self.state.select(None);
     }
 }
+pub type RcDoc = Rc<RefCell<Document>>;
 #[derive(Debug)]
 pub struct Document {
     pub item_data: ItemData,
@@ -60,7 +61,7 @@ pub struct Document {
     pub attachments: Option<StatefulList<Attachment>>,
     pub toggled: Cell<bool>,
 }
-impl FromIterator<ItemData> for Vec<Rc<RefCell<Document>>> {
+impl FromIterator<ItemData> for Vec<RcDoc> {
     fn from_iter<T: IntoIterator<Item = ItemData>>(iter: T) -> Self {
         iter.into_iter()
             .map(|item| {

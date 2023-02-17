@@ -5,7 +5,7 @@ use tui::{
     backend::Backend,
     layout::{Constraint, Direction, Layout, Rect},
     style::{Color, Modifier, Style},
-    text::{Span, Spans},
+    text::{Span},
     widgets::{Block, Borders, List, ListItem, Paragraph},
     Frame,
 };
@@ -16,6 +16,7 @@ use crate::app::App;
 impl fmt::Display for UIBlockType {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self {
+            UIBlockType::Menu => write!(f, "Menu"),
             UIBlockType::Title => write!(f, "Title"),
             UIBlockType::Creator => write!(f, "Creator"),
             UIBlockType::Year => write!(f, "Year"),
@@ -24,7 +25,7 @@ impl fmt::Display for UIBlockType {
         }
     }
 }
-
+pub type RcUIBlock = Rc<RefCell<UIBlock>>;
 pub struct UIBlock {
     pub ratio: usize,
     pub ty: UIBlockType,
@@ -32,6 +33,7 @@ pub struct UIBlock {
 }
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum UIBlockType {
+    Menu,
     Input,
     Title,
     Creator,
@@ -39,10 +41,9 @@ pub enum UIBlockType {
     Collections,
 }
 
-fn draw_ui_block<'a, B: Backend>(f: &mut Frame<B>, rect: Rect, app: &mut App, idx: usize) {
-    let block = app.ui_blocks.get(idx).unwrap();
-    let block_ty = block.borrow().ty;
-    let entries: Vec<ListItem> = match block_ty {
+fn draw_ui_block<'a, B: Backend>(f: &mut Frame<B>, rect: Rect, app: &mut App, block: RcUIBlock) {
+    // let block = app.ui_blocks.get(idx).unwrap();
+    let entries: Vec<ListItem> = match block.borrow().ty {
         UIBlockType::Input => unreachable!(),
         UIBlockType::Collections => app
             .collections
@@ -56,7 +57,7 @@ fn draw_ui_block<'a, B: Backend>(f: &mut Frame<B>, rect: Rect, app: &mut App, id
             .iter()
             .map(|doc| {
                 ListItem::new(Span::raw(
-                    doc.borrow().build_header_for_block_type(block_ty),
+                    doc.borrow().build_header_for_block_type(block.borrow().ty),
                 ))
             })
             .collect(),
@@ -80,8 +81,8 @@ fn draw_ui_block<'a, B: Backend>(f: &mut Frame<B>, rect: Rect, app: &mut App, id
                 .add_modifier(Modifier::BOLD),
         );
 
-    match block_ty {
-        UIBlockType::Input => unreachable!(),
+    match block.borrow().ty {
+        UIBlockType::Input | UIBlockType::Menu => unreachable!(),
         UIBlockType::Collections => {
             f.render_stateful_widget(list, rect, &mut app.collections.state)
         }
@@ -89,12 +90,10 @@ fn draw_ui_block<'a, B: Backend>(f: &mut Frame<B>, rect: Rect, app: &mut App, id
     }
 }
 
-fn build_constraints(blocks: &Vec<Rc<RefCell<UIBlock>>>) -> Vec<Constraint> {
-    //HACK:  UI block is always at 0
+fn build_constraints(blocks: &Vec<RcUIBlock>) -> Vec<Constraint> {
     blocks
         .iter()
         .to_owned()
-        .filter(|block| block.borrow().ty != UIBlockType::Input)
         .map(|block| Constraint::Percentage(block.borrow().ratio as _))
         .collect()
 }
@@ -132,15 +131,23 @@ pub fn draw_main_layout<B: Backend>(f: &mut Frame<B>, app: &mut App) {
 
     f.render_widget(input, main_layout[0]);
 
+    // Configurable UI blocks
+    let flex_ui_blocks: Vec<Rc<RefCell<UIBlock>>> = app
+        .ui_blocks
+        .iter()
+        .filter(|block| match block.borrow().ty {
+            UIBlockType::Menu | UIBlockType::Input => false,
+            _ => true,
+        })
+        .map(|block| block.clone())
+        .collect();
     // Build contraints for the layout
     let chunks = Layout::default()
         .direction(Direction::Horizontal)
-        .constraints(build_constraints(&app.ui_blocks))
+        .constraints(build_constraints(&flex_ui_blocks))
         .split(main_layout[1]);
 
-    // TODO: Please fix this ugly code
-    //HACK: UI block is always 0
-    for i in 1..app.ui_blocks.len() {
-        draw_ui_block(f, chunks[i - 1], app, i);
+    for (i, b) in flex_ui_blocks.iter().enumerate() {
+        draw_ui_block(f, chunks[i], app, b.to_owned());
     }
 }

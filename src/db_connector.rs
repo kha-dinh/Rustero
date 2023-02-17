@@ -1,5 +1,5 @@
 use crate::data_structures::*;
-use std::{cell::RefCell, rc::Rc};
+
 
 use sqlx::query_as;
 
@@ -113,7 +113,7 @@ mod tests {
         let all_items =
             tokio_test::block_on(get_all_item_data(&mut app)).expect("Expect read all docs");
         // dbg!(&all_items);
-        let all_docs: Vec<Rc<RefCell<Document>>> = Vec::from_iter(all_items);
+        let all_docs: Vec<RcDoc> = Vec::from_iter(all_items);
         tokio_test::block_on(get_creators_for_docs(&mut app)).expect("Expect read all creators");
         tokio_test::block_on(get_attachments_for_docs(&mut app))
             .expect("Expect read all attachments");
