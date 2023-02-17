@@ -10,7 +10,7 @@ pub struct Document {
 }
 
 impl Document {
-    pub fn get_str_for_block_type(&self, ty: UIBlockType) -> &str {
+    pub fn get_cmp_str_for_block_type(&self, ty: UIBlockType) -> &str {
         match ty {
             UIBlockType::Title => self.get_title(),
             UIBlockType::Creator => {

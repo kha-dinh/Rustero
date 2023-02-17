@@ -119,8 +119,8 @@ impl App {
         self.filtered_documents.items.sort_unstable_by(|a, b| {
             let _a = a.borrow();
             let _b = b.borrow();
-            let cmp_str_a = _a.get_str_for_block_type(ty);
-            let cmp_str_b = _b.get_str_for_block_type(ty);
+            let cmp_str_a = _a.get_cmp_str_for_block_type(ty);
+            let cmp_str_b = _b.get_cmp_str_for_block_type(ty);
             let cmp = cmp_str_a.partial_cmp(cmp_str_b).unwrap();
             match self.sort_direction.get() {
                 SortDirection::Down => cmp.reverse(),
