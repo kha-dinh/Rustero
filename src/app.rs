@@ -6,7 +6,7 @@ use std::{
 
 use fuzzy_matcher::{skim::SkimMatcherV2, FuzzyMatcher};
 use sqlx::SqlitePool;
-use tui::widgets::ListState;
+use tui::widgets::{ListState, TableState};
 
 use crate::{
     data_structures::{Collection, Document, RcDoc, StatefulList},
@@ -24,6 +24,8 @@ pub struct App {
     pub active_block: Option<Box<dyn Iterator<Item = RcUIBlock>>>,
     pub filtered_documents: StatefulList<RcDoc>,
     pub collections: StatefulList<Collection>,
+    // pub document_items: Vec<RcDoc>,
+    pub tbl_state: TableState,
     pub active_block_idx: Cell<usize>,
     pub previous_block_idx: Cell<usize>,
     pub sorted: Cell<bool>,
@@ -42,6 +44,7 @@ pub enum SortDirection {
 impl Default for App {
     fn default() -> App {
         App {
+            tbl_state: TableState::default(),
             active_block: None,
             sort_direction: Cell::from(SortDirection::Up),
             search_input: String::new(),

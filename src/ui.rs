@@ -5,8 +5,8 @@ use tui::{
     backend::Backend,
     layout::{Constraint, Direction, Layout, Rect},
     style::{Color, Modifier, Style},
-    text::Span,
-    widgets::{Block, Borders, List, ListItem, Paragraph},
+    text::{Span, Spans},
+    widgets::{Block, Borders, Cell, List, ListItem, Paragraph, Row, Table},
     Frame,
 };
 use unicode_width::UnicodeWidthStr;
@@ -102,6 +102,90 @@ fn build_constraints(blocks: &Vec<RcUIBlock>) -> Vec<Constraint> {
         .map(|block| Constraint::Percentage(block.borrow().ratio as _))
         .collect()
 }
+fn draw_document_items<B: Backend>(f: &mut Frame<B>, rect: Rect, app: &mut App) {
+    let mut rows = Vec::new();
+    let mut header = Vec::new();
+    header.push(Cell::from(UIBlockType::Title.to_string()));
+    header.push(Cell::from(UIBlockType::Year.to_string()));
+    header.push(Cell::from(UIBlockType::Creator.to_string()));
+    for doc in &app.filtered_documents.items {
+        let mut cells = Vec::new();
+        let doc = doc.borrow();
+        cells.push(Cell::from(doc.get_title().to_owned()));
+        cells.push(Cell::from(
+            doc.get_cmp_str_for_block_type(UIBlockType::Creator)
+                .to_owned(),
+        ));
+        cells.push(Cell::from(doc.get_year().to_owned()));
+
+        rows.push(Row::new(cells));
+    }
+    // rows.push(Row::new(vec!["test", "test", "test"]));
+    // rows.push(Row::new(vec!["test", "test", "test"]));
+    // rows.push(Row::new(vec!["test", "test", "test"]));
+    let tbl = Table::new(rows)
+        // You can set the style of the entire Table.
+        .style(Style::default().fg(Color::White))
+        // It has an optional header, which is simply a Row always visible at the top.
+        .header(
+            Row::new(header).style(Style::default().fg(Color::LightGreen)), // specify some margin at the bottom.
+        )
+        .block(
+            Block::default()
+                .borders(Borders::ALL)
+                // .border_style(match block.borrow().activated {
+                //     true => Style::default()
+                //         .add_modifier(Modifier::BOLD)
+                //         .fg(Color::LightGreen),
+                //     false => Style::default(),
+                // })
+                .title("Documents"),
+        )
+        // Columns widths are constrained in the same way as Layout...
+        .widths(&[
+            Constraint::Percentage(70),
+            Constraint::Percentage(20),
+            Constraint::Percentage(10),
+        ])
+        // ...and they can be separated by a fixed spacing.
+        .column_spacing(1)
+        // If you wish to highlight a row in any specific way when it is selected...
+        .highlight_style(Style::default().add_modifier(Modifier::BOLD))
+        // ...and potentially show a symbol in front of the selection.
+        .highlight_symbol(">>");
+    // f.render_widget(tbl, rect);
+    f.render_stateful_widget(tbl, rect, &mut app.tbl_state);
+}
+fn draw_collection_block<B: Backend>(f: &mut Frame<B>, rect: Rect, app: &mut App) {
+    let block = app.get_block_with_type(UIBlockType::Collections);
+    let entries: Vec<ListItem> = app
+        .collections
+        .items
+        .iter()
+        .map(|col| ListItem::new(Span::raw(&col.collectionName)))
+        .collect();
+
+    let list = List::new(entries)
+        .block(
+            Block::default()
+                .borders(Borders::ALL)
+                .border_style(match block.borrow().activated {
+                    true => Style::default()
+                        .add_modifier(Modifier::BOLD)
+                        .fg(Color::LightGreen),
+                    false => Style::default(),
+                })
+                .title(block.borrow().ty.to_string()),
+        )
+        .highlight_style(
+            Style::default()
+                .bg(Color::LightGreen)
+                .fg(Color::Black)
+                .add_modifier(Modifier::BOLD),
+        );
+
+    f.render_stateful_widget(list, rect, &mut app.collections.state)
+}
 pub fn draw_main_layout<B: Backend>(f: &mut Frame<B>, app: &mut App) {
     let main_layout = Layout::default()
         .direction(Direction::Vertical)
@@ -135,24 +219,33 @@ pub fn draw_main_layout<B: Backend>(f: &mut Frame<B>, app: &mut App) {
     );
 
     f.render_widget(input, main_layout[0]);
-
-    // Configurable UI blocks
-    let flex_ui_blocks: Vec<Rc<RefCell<UIBlock>>> = app
-        .ui_blocks
-        .iter()
-        .filter(|block| match block.borrow().ty {
-            UIBlockType::Menu | UIBlockType::Input => false,
-            _ => true,
-        })
-        .map(|block| block.clone())
-        .collect();
-    // Build contraints for the layout
-    let chunks = Layout::default()
+    let vert_split = Layout::default()
         .direction(Direction::Horizontal)
-        .constraints(build_constraints(&flex_ui_blocks))
+        .constraints([Constraint::Percentage(30), Constraint::Percentage(70)].as_ref())
         .split(main_layout[1]);
+    draw_collection_block(f, vert_split[0], app);
+    draw_document_items(f, vert_split[1], app);
 
-    for (i, b) in flex_ui_blocks.iter().enumerate() {
-        draw_ui_block(f, chunks[i], app, b.to_owned());
+    // TODO: Rewrite to use table
+    if false {
+        // Configurable UI blocks
+        let flex_ui_blocks: Vec<Rc<RefCell<UIBlock>>> = app
+            .ui_blocks
+            .iter()
+            .filter(|block| match block.borrow().ty {
+                UIBlockType::Menu | UIBlockType::Input => false,
+                _ => true,
+            })
+            .map(|block| block.clone())
+            .collect();
+        // Build contraints for the layout
+        let chunks = Layout::default()
+            .direction(Direction::Horizontal)
+            .constraints(build_constraints(&flex_ui_blocks))
+            .split(main_layout[1]);
+
+        for (i, b) in flex_ui_blocks.iter().enumerate() {
+            draw_ui_block(f, chunks[i], app, b.to_owned());
+        }
     }
 }

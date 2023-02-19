@@ -3,13 +3,19 @@ use std::{
     rc::Rc,
 };
 
-use tui::widgets::ListState;
+use tui::widgets::{ListState, TableState, Row};
 
 use crate::ui::UIBlockType;
 
 #[derive(Debug)]
 pub struct StatefulList<T> {
     pub state: ListState,
+    pub items: Vec<T>,
+}
+
+#[derive(Debug)]
+pub struct StatefulTable<T> {
+    pub state: TableState,
     pub items: Vec<T>,
 }
 
