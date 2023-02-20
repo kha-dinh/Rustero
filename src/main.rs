@@ -109,6 +109,18 @@ async fn start_ui(user_config: UserConfig) -> Result<()> {
                         }
                         _ => {
                             app.filtered_documents.next();
+
+                            let i = match app.tbl_state.selected() {
+                                Some(i) => {
+                                    if i >= app.filtered_documents.items.len() - 1 {
+                                        0
+                                    } else {
+                                        i + 1
+                                    }
+                                }
+                                None => 0,
+                            };
+                            app.tbl_state.select(Some(i));
                         }
                     },
                     Key::Right => {
@@ -131,6 +143,17 @@ async fn start_ui(user_config: UserConfig) -> Result<()> {
                             app.collections.previous();
                         }
                         _ => {
+                            let i = match app.tbl_state.selected() {
+                                Some(i) => {
+                                    if i == 0 {
+                                        app.filtered_documents.items.len() - 1
+                                    } else {
+                                        i - 1
+                                    }
+                                }
+                                None => 0,
+                            };
+                            app.tbl_state.select(Some(i));
                             app.filtered_documents.previous();
                         }
                     },
@@ -154,6 +177,12 @@ async fn start_ui(user_config: UserConfig) -> Result<()> {
                             app.search_input.push(c);
                             app.update_filtered_doc();
                         } else {
+                            if c == ' ' {
+                                if let Some(doc) = app.get_selected_doc() {
+                                    doc.borrow_mut().toggle();
+                                    // TODO: Need a way to update the cursor to colasped document
+                                }
+                            }
                             if c == '/' {
                                 if app.get_active_block().borrow().ty.is_searchable() {
                                     app.sort_by_type = app.get_active_block().borrow().ty;

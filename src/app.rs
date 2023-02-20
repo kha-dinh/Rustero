@@ -1,5 +1,6 @@
 use std::{
     cell::{Cell, RefCell},
+    collections::HashMap,
     path::{Path, PathBuf},
     rc::Rc,
 };
@@ -10,7 +11,7 @@ use tui::widgets::{ListState, TableState};
 
 use crate::{
     data_structures::{Collection, Document, RcDoc, StatefulList},
-    ui::{UIBlock, UIBlockType, RcUIBlock},
+    ui::{RcUIBlock, UIBlock, UIBlockType},
 };
 
 /// App holds the state of the application
@@ -21,6 +22,7 @@ pub struct App {
     /// History of recorded messages
     pub documents: Vec<RcDoc>,
 
+    pub row_num_to_doc: HashMap<usize, usize>,
     pub active_block: Option<Box<dyn Iterator<Item = RcUIBlock>>>,
     pub filtered_documents: StatefulList<RcDoc>,
     pub collections: StatefulList<Collection>,
@@ -45,6 +47,7 @@ impl Default for App {
     fn default() -> App {
         App {
             tbl_state: TableState::default(),
+            row_num_to_doc: HashMap::new(),
             active_block: None,
             sort_direction: Cell::from(SortDirection::Up),
             search_input: String::new(),
@@ -130,12 +133,28 @@ impl App {
     //     }
     //     None => {}
     // }
+    // pub fn get_selected_doc_idx(&self) -> Option<RcDoc> {}
     pub fn get_selected_doc(&self) -> Option<RcDoc> {
-        if let Some(idx) = self.filtered_documents.state.selected() {
-            Some(self.filtered_documents.items.get(idx).unwrap().clone())
+        if let Some(selected_idx) = self
+            .row_num_to_doc
+            .get(&self.tbl_state.selected().unwrap_or(0))
+        {
+            // None
+            Some(
+                self.filtered_documents
+                    .items
+                    .get(selected_idx.to_owned())
+                    .unwrap()
+                    .clone(),
+            )
         } else {
             None
         }
+        // if let Some(idx) = self.filtered_documents.state.selected() {
+        //     Some(self.filtered_documents.items.get(idx).unwrap().clone())
+        // } else {
+        //     None
+        // }
     }
     pub fn get_block_with_type(&self, ty: UIBlockType) -> Rc<RefCell<UIBlock>> {
         self.ui_blocks

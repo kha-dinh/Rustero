@@ -1,5 +1,5 @@
 use core::fmt;
-use std::{cell::RefCell, rc::Rc};
+use std::{borrow::BorrowMut, cell::RefCell, rc::Rc};
 
 use tui::{
     backend::Backend,
@@ -108,17 +108,41 @@ fn draw_document_items<B: Backend>(f: &mut Frame<B>, rect: Rect, app: &mut App) 
     header.push(Cell::from(UIBlockType::Title.to_string()));
     header.push(Cell::from(UIBlockType::Year.to_string()));
     header.push(Cell::from(UIBlockType::Creator.to_string()));
-    for doc in &app.filtered_documents.items {
+    for (idx, doc) in app.filtered_documents.items.iter().enumerate() {
         let mut cells = Vec::new();
         let doc = doc.borrow();
+        let mut row_height: u16 = 1;
+        // cells.push(Cell::from(first_cell_content));
         cells.push(Cell::from(doc.get_title().to_owned()));
         cells.push(Cell::from(
             doc.get_cmp_str_for_block_type(UIBlockType::Creator)
                 .to_owned(),
         ));
         cells.push(Cell::from(doc.get_year().to_owned()));
+        let new_row = Row::new(cells).height(row_height);
+        rows.push(new_row);
+        app.row_num_to_doc.insert(rows.len() - 1, idx);
 
-        rows.push(Row::new(cells));
+        if doc.toggled.get() {
+            if let Some(attachments) = &doc.attachments {
+                for att in &attachments.items {
+                    if let Some(path) = &att.path {
+                        if (row_height as usize) < attachments.items.len() {
+                            rows.push(Row::new(vec![Cell::from(
+                                format!("   ├──{}", path).replace("storage:", ""),
+                            )]));
+                        } else {
+                            rows.push(Row::new(vec![Cell::from(
+                                format!("   └──{}", path).replace("storage:", ""),
+                            )]));
+                        }
+                        row_height += 1;
+                        // Update the mapping
+                        app.row_num_to_doc.insert(rows.len() - 1, idx);
+                    }
+                }
+            }
+        }
     }
     // rows.push(Row::new(vec!["test", "test", "test"]));
     // rows.push(Row::new(vec!["test", "test", "test"]));
@@ -150,9 +174,21 @@ fn draw_document_items<B: Backend>(f: &mut Frame<B>, rect: Rect, app: &mut App) 
         // ...and they can be separated by a fixed spacing.
         .column_spacing(1)
         // If you wish to highlight a row in any specific way when it is selected...
-        .highlight_style(Style::default().add_modifier(Modifier::BOLD))
+        // .highlight_style(Style::default().add_modifier(Modifier::BOLD))
+        .highlight_style(
+            Style::default()
+                .bg(Color::LightGreen)
+                .fg(Color::Black)
+                .add_modifier(Modifier::BOLD),
+        )
         // ...and potentially show a symbol in front of the selection.
-        .highlight_symbol(">>");
+        .highlight_symbol(match app.get_selected_doc() {
+            Some(doc) => match doc.borrow().toggled.get() {
+                true => "◯❯",
+                false => "◉❯",
+            },
+            None => "❯",
+        });
     // f.render_widget(tbl, rect);
     f.render_stateful_widget(tbl, rect, &mut app.tbl_state);
 }
