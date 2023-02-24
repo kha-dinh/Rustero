@@ -10,7 +10,7 @@ use sqlx::SqlitePool;
 use tui::widgets::{ListState, TableState};
 
 use crate::{
-    data_structures::{Collection, Document, RcDoc, StatefulList},
+    data_structures::{Collection, Document, RcDoc, StatefulList, RcCollection},
     ui::{RcUIBlock, UIBlock, UIBlockType},
 };
 
@@ -25,7 +25,7 @@ pub struct App {
     pub row_num_to_doc: HashMap<usize, usize>,
     pub active_block: Option<Box<dyn Iterator<Item = RcUIBlock>>>,
     pub filtered_documents: StatefulList<RcDoc>,
-    pub collections: StatefulList<Collection>,
+    pub collections: StatefulList<RcCollection>,
     // pub document_items: Vec<RcDoc>,
     pub tbl_state: TableState,
     pub active_block_idx: Cell<usize>,

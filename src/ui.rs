@@ -54,7 +54,7 @@ fn draw_ui_block<'a, B: Backend>(f: &mut Frame<B>, rect: Rect, app: &mut App, bl
             .collections
             .items
             .iter()
-            .map(|col| ListItem::new(Span::raw(&col.collectionName)))
+            .map(|col| ListItem::new(Span::raw(col.borrow().collectionName.to_owned())))
             .collect(),
         _ => app
             .filtered_documents
@@ -198,7 +198,7 @@ fn draw_collection_block<B: Backend>(f: &mut Frame<B>, rect: Rect, app: &mut App
         .collections
         .items
         .iter()
-        .map(|col| ListItem::new(Span::raw(&col.collectionName)))
+        .map(|col| ListItem::new(Span::raw(col.borrow().collectionName.to_owned())))
         .collect();
 
     let list = List::new(entries)

@@ -83,11 +83,11 @@ async fn start_ui(user_config: UserConfig) -> Result<()> {
             get_collections(&mut app).await?;
             app.refresh_active_block();
 
-            app.collections.items.push(Collection {
+            app.collections.items.push(Rc::new(RefCell::new(Collection {
                 collectionId: 0,
                 collectionName: "My Library".to_owned(),
                 parentCollectionId: None,
-            });
+            })));
             app.update_filtered_doc();
             is_first_render = false;
         }

@@ -3,7 +3,7 @@ use std::{
     rc::Rc,
 };
 
-use tui::widgets::{ListState, TableState, Row};
+use tui::widgets::{ListState, Row, TableState};
 
 use crate::ui::UIBlockType;
 
@@ -18,9 +18,7 @@ pub struct StatefulTable<T> {
     pub state: TableState,
     pub items: Vec<T>,
 }
-trait Selectable {
-
-}
+trait Selectable {}
 
 impl<T> StatefulTable<T> {
     pub fn with_items(items: Vec<T>) -> StatefulList<T> {
@@ -107,6 +105,7 @@ pub type RcDoc = Rc<RefCell<Document>>;
 pub struct Document {
     pub item_data: ItemData,
     pub creators: Vec<Creator>,
+    pub collections: Vec<RcCollection>,
     pub attachments: Option<StatefulList<Attachment>>,
     pub toggled: Cell<bool>,
 }
@@ -117,6 +116,7 @@ impl FromIterator<ItemData> for Vec<RcDoc> {
                 Rc::new(RefCell::new(Document {
                     toggled: Cell::from(false),
                     item_data: item,
+                    collections: Vec::new(),
                     creators: Vec::new(),
                     attachments: None,
                 }))
@@ -218,6 +218,14 @@ pub struct ItemData {
     pub key: String,
 }
 
+#[derive(Debug, Clone)]
+#[allow(non_snake_case)]
+pub struct CollectionItem {
+    pub collectionId: i64,
+    pub itemId: i64,
+}
+
+pub type RcCollection = Rc<RefCell<Collection>>;
 #[derive(Debug, Clone)]
 #[allow(non_snake_case)]
 pub struct Collection {

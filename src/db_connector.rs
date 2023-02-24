@@ -1,5 +1,6 @@
-use crate::data_structures::*;
+use std::{cell::RefCell, rc::Rc};
 
+use crate::data_structures::*;
 
 use sqlx::query_as;
 
@@ -32,6 +33,41 @@ WHERE parentItemID = ?
 }
 
 #[allow(non_snake_case)]
+pub async fn get_collections_items(app: &mut App) -> anyhow::Result<()> {
+    let pool = app.sqlite_pool.as_ref().unwrap();
+
+    let records = query_as!(
+        CollectionItem,
+        r#"
+SELECT collectionID as "collectionId!", itemID as "itemId!"
+FROM collectionItems
+"#,
+    )
+    .fetch_all(pool)
+    .await?;
+    assert!(!app.documents.is_empty());
+    // TODO: Handle multiple collection, same record.
+    for record in records {
+        if let Some(doc) = app
+            .documents
+            .iter()
+            .find(|doc| doc.borrow().item_data.itemId == record.itemId)
+        {
+            if let Some(collection) = app
+                .collections
+                .items
+                .iter()
+                .find(|col| col.borrow().collectionId == record.collectionId)
+            {
+                doc.borrow_mut().collections.push(collection.clone());
+            }
+        };
+    }
+
+    // app.collections.items = records;
+    Ok(())
+}
+#[allow(non_snake_case)]
 pub async fn get_collections(app: &mut App) -> anyhow::Result<()> {
     let pool = app.sqlite_pool.as_ref().unwrap();
 
@@ -45,7 +81,9 @@ ORDER BY collectionName
         )
         .fetch_all(pool)
         .await?;
-    app.collections.items = records;
+    for record in records {
+        app.collections.items.push(Rc::new(RefCell::new(record)));
+    }
     Ok(())
 }
 #[allow(non_snake_case)]
