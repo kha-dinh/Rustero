@@ -127,16 +127,17 @@ fn draw_document_items<B: Backend>(f: &mut Frame<B>, rect: Rect, app: &mut App) 
         app.row_num_to_doc.insert(rows.len() - 1, idx);
 
         if doc.toggled.get() {
+            // TODO: different icon based on file style
             if let Some(attachments) = &doc.attachments {
                 for att in &attachments.items {
                     if let Some(path) = &att.path {
                         if (row_height as usize) < attachments.items.len() {
                             rows.push(Row::new(vec![Cell::from(
-                                format!("   ├──{}", path).replace("storage:", ""),
+                                format!("   ├── {}", path).replace("storage:", ""),
                             )]));
                         } else {
                             rows.push(Row::new(vec![Cell::from(
-                                format!("   └──{}", path).replace("storage:", ""),
+                                format!("   └── {}", path).replace("storage:", ""),
                             )]));
                         }
                         row_height += 1;
@@ -185,13 +186,14 @@ fn draw_document_items<B: Backend>(f: &mut Frame<B>, rect: Rect, app: &mut App) 
                 .add_modifier(Modifier::BOLD),
         )
         // ...and potentially show a symbol in front of the selection.
-        .highlight_symbol(match app.get_selected_doc() {
-            Some(doc) => match doc.borrow().toggled.get() {
-                true => "◯❯",
-                false => "◉❯",
-            },
-            None => "❯",
-        });
+        // .highlight_symbol(match app.get_selected_doc() {
+        //     Some(doc) => match doc.borrow().toggled.get() {
+        //         true => "◯❯",
+        //         false => "◉❯",
+        //     },
+        //     None => "❯",
+        // })
+        ;
     // f.render_widget(tbl, rect);
     f.render_stateful_widget(tbl, rect, &mut app.tbl_state);
 }
@@ -214,7 +216,18 @@ fn build_collection_entires_for_node(
             for _ in 0..level {
                 item_string.push_str("  ");
             }
-            item_string.push_str("> ");
+            if node.borrow().selected {
+                item_string.push_str(" ");
+            } else {
+                item_string.push_str(" ");
+            }
+            // let icon_span = Span::raw(item_string).style(match node.borrow().selected {
+            //         true => Style::default()
+            //             .add_modifier(Modifier::BOLD)
+            //             .fg(Color::LightGreen),
+            //         false => Style::default(),
+            //     })
+
             item_string.push_str(col.borrow().collectionName.as_str());
             entries.push(ListItem::new(Span::raw(item_string)));
         }
@@ -309,7 +322,7 @@ pub fn draw_main_layout<B: Backend>(f: &mut Frame<B>, app: &mut App) {
     draw_collection_block(f, vert_split[0], app);
     draw_document_items(f, vert_split[1], app);
 
-    // TODO: Rewrite to use table
+    // Old code
     if false {
         // Configurable UI blocks
         let flex_ui_blocks: Vec<Rc<RefCell<UIBlock>>> = app
