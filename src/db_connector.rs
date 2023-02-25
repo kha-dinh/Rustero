@@ -74,7 +74,7 @@ pub async fn get_collections(app: &mut App) -> anyhow::Result<()> {
     let records = query_as!(
             Collection,
             r#"
-SELECT collectionID as "collectionId!", collectionName as "collectionName!", parentCollectionId as "parentCollectionId?"
+SELECT collectionID as "collectionId!", libraryID as "libraryId!", collectionName as "collectionName!", parentCollectionId as "parentCollectionId?"
 FROM collections
 ORDER BY collectionName
 "#,

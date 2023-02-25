@@ -1,4 +1,5 @@
 mod app;
+mod collection_tree;
 mod data_structures;
 mod db_connector;
 mod event;
@@ -81,13 +82,12 @@ async fn start_ui(user_config: UserConfig) -> Result<()> {
             get_creators_for_docs(&mut app).await?;
             get_attachments_for_docs(&mut app).await?;
             get_collections(&mut app).await?;
+            app.collection_tree.build_collection_tree(&mut app.collections.items);
+            // log::debug!(stringify!(&app.collection_tree));
+            // break;
+            // build_collection_tree(&mut app.collection_tree, &app.collections);
             app.refresh_active_block();
 
-            app.collections.items.push(Rc::new(RefCell::new(Collection {
-                collectionId: 0,
-                collectionName: "My Library".to_owned(),
-                parentCollectionId: None,
-            })));
             app.update_filtered_doc();
             is_first_render = false;
         }

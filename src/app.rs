@@ -10,7 +10,8 @@ use sqlx::SqlitePool;
 use tui::widgets::{ListState, TableState};
 
 use crate::{
-    data_structures::{Collection, Document, RcDoc, StatefulList, RcCollection},
+    collection_tree::CollectionTree,
+    data_structures::{Collection, Document, RcCollection, RcDoc, StatefulList},
     ui::{RcUIBlock, UIBlock, UIBlockType},
 };
 
@@ -21,6 +22,7 @@ pub struct App {
     pub sqlite_pool: Option<SqlitePool>,
     /// History of recorded messages
     pub documents: Vec<RcDoc>,
+    pub collection_tree: CollectionTree,
 
     pub row_num_to_doc: HashMap<usize, usize>,
     pub active_block: Option<Box<dyn Iterator<Item = RcUIBlock>>>,
@@ -46,6 +48,7 @@ pub enum SortDirection {
 impl Default for App {
     fn default() -> App {
         App {
+            collection_tree: CollectionTree::new(),
             tbl_state: TableState::default(),
             row_num_to_doc: HashMap::new(),
             active_block: None,

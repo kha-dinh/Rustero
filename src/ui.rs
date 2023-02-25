@@ -11,7 +11,7 @@ use tui::{
 };
 use unicode_width::UnicodeWidthStr;
 
-use crate::app::App;
+use crate::{app::App, collection_tree::CollectionNodeValue};
 
 impl fmt::Display for UIBlockType {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
@@ -192,14 +192,67 @@ fn draw_document_items<B: Backend>(f: &mut Frame<B>, rect: Rect, app: &mut App) 
     // f.render_widget(tbl, rect);
     f.render_stateful_widget(tbl, rect, &mut app.tbl_state);
 }
+// fn draw_collection_block<B: Backend>(f: &mut Frame<B>, rect: Rect, app: &mut App) {
+// }
 fn draw_collection_block<B: Backend>(f: &mut Frame<B>, rect: Rect, app: &mut App) {
     let block = app.get_block_with_type(UIBlockType::Collections);
-    let entries: Vec<ListItem> = app
-        .collections
-        .items
+    let mut entries: Vec<ListItem> = Vec::new();
+    // dbg!(&app.collection_tree);
+    // TODO: rework this mess into a recursive function...
+    app.collection_tree
+        .get_library_nodes()
         .iter()
-        .map(|col| ListItem::new(Span::raw(col.borrow().collectionName.to_owned())))
-        .collect();
+        .for_each(|node| {
+            // dbg!(&node);
+            if let CollectionNodeValue::Library(lib) = &node.borrow().value {
+                entries.push(ListItem::new(Span::raw(
+                    lib.borrow().libraryName.to_owned(),
+                )));
+                app.collection_tree
+                    .get_node_children(node.clone())
+                    .iter()
+                    .for_each(|node| {
+                        if let CollectionNodeValue::Collection(col) = &node.borrow().value {
+                            if col.borrow().parentCollectionId.is_none() {
+                                entries.push(ListItem::new(Span::raw(format!(
+                                    " > {}",
+                                    col.borrow().collectionName.to_owned()
+                                ))));
+
+                                // Recursively visit children
+                                app.collection_tree
+                                    .get_node_children(node.clone())
+                                    .iter()
+                                    .for_each(|sub_node| {
+                                        if let CollectionNodeValue::Collection(subcol) =
+                                            &sub_node.borrow().value
+                                        {
+                                            if subcol.borrow().parentCollectionId.unwrap()
+                                                == col.borrow().collectionId
+                                            {
+                                                entries.push(ListItem::new(Span::raw(format!(
+                                                    "   > {}",
+                                                    subcol.borrow().collectionName.to_owned()
+                                                ))));
+                                            }
+                                        }
+                                    });
+                            }
+                        }
+                    });
+            } else {
+                panic!("Wtf?");
+            }
+        });
+
+    // dbg!(&entries);
+    // app.collection_tree.nodes.iter().filter(|node| { if let CollectionNodeValue::Library() node.borrow().value});
+
+    // app.collections
+    //     .items
+    //     .iter()
+    //     .map(|col| ListItem::new(Span::raw(col.borrow().collectionName.to_owned())))
+    //     .collect();
 
     let list = List::new(entries)
         .block(

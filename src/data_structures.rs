@@ -157,7 +157,6 @@ impl Document {
                 // String::from(vec![self.creators.get(0).unwrap().firstName]);
             }
             UIBlockType::Year => self.get_year(),
-            UIBlockType::Collections => todo!(),
             _ => {
                 unreachable!()
             }
@@ -226,12 +225,19 @@ pub struct CollectionItem {
 }
 
 pub type RcCollection = Rc<RefCell<Collection>>;
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq)]
 #[allow(non_snake_case)]
 pub struct Collection {
     pub collectionId: i64,
+    pub libraryId: i64,
     pub collectionName: String,
     pub parentCollectionId: Option<i64>,
+}
+
+#[derive(Debug, PartialEq)]
+pub struct Library {
+    pub libraryId: i64,
+    pub libraryName: String,
 }
 
 #[derive(Debug, Clone)]
