@@ -23,6 +23,7 @@ pub enum CollectionNodeValue {
     Library(Rc<RefCell<Library>>),
 }
 
+pub type RcCollectionNode = Rc<RefCell<CollectionNode>>;
 #[derive(Debug)]
 pub struct CollectionTreeEdge {
     src: Rc<RefCell<CollectionNode>>,
