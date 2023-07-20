@@ -77,6 +77,7 @@ impl Default for App {
 
 impl App {
     pub fn update_on_tick(&self) {}
+
     pub fn toggle_sorted(&mut self) {
         // self.sorted.set(!self.sorted.get());
         self.sorted.set(true);

@@ -17,7 +17,7 @@ impl From<RcCollection> for CollectionNode {
     }
 }
 
-#[derive(Debug,PartialEq)]
+#[derive(Debug, PartialEq)]
 pub enum CollectionNodeValue {
     Collection(RcCollection),
     Library(Rc<RefCell<Library>>),
